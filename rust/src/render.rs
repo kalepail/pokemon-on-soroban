@@ -159,48 +159,73 @@ fn draw_player_sprite(
     }
 }
 
+fn torus_delta(a: f64, b: f64, size: f64) -> f64 {
+    let mut d = a - b;
+    if d > size / 2.0 { d -= size; }
+    if d < -size / 2.0 { d += size; }
+    d
+}
+
+fn world_to_screen(
+    obj_x: f64, obj_y: f64,
+    cam_x: f64, cam_y: f64,
+    world_w: f64, world_h: f64,
+    center_px: f64, center_py: f64,
+) -> (i32, i32) {
+    let dx = torus_delta(obj_x, cam_x, world_w);
+    let dy = torus_delta(obj_y, cam_y, world_h);
+    let sx = (center_px + dx / SCALE).floor() as i32;
+    let sy = (center_py + dy / SCALE).floor() as i32;
+    (sx, sy)
+}
+
 pub fn draw(frame: &mut Frame, state: &GameState) {
     let area = frame.area();
     let pixel_w = area.width as usize;
     let pixel_h = area.height as usize * 2;
 
-    // Find camera center — follow self player, or center of world
     let (cam_x, cam_y) = if let Some(me) = state.self_player() {
-        (me.x as f64, me.y as f64)
+        state.interpolated_pos(me.x, me.y, me.vx, me.vy)
     } else {
         (state.world_width as f64 / 2.0, state.world_height as f64 / 2.0)
     };
 
-    let vp_left = cam_x - (pixel_w as f64 / 2.0) * SCALE;
-    let vp_top = cam_y - (pixel_h as f64 / 2.0) * SCALE;
-
     let w = pixel_w;
     let h = pixel_h;
-    let world_w = state.world_width as i64;
-    let world_h = state.world_height as i64;
+    let ww = state.world_width as f64;
+    let wh = state.world_height as f64;
+    let center_px = w as f64 / 2.0;
+    let center_py = h as f64 / 2.0;
 
     let mut pixels = vec![OUTSIDE_COLOR; w * h];
 
-    // Draw world background
+    // Draw world background — wrapping aware
     for py in 0..h {
         for px in 0..w {
-            let wx = (vp_left + px as f64 * SCALE).floor() as i64;
-            let wy = (vp_top + py as f64 * SCALE).floor() as i64;
-            pixels[py * w + px] = world_pixel_color(wx, wy, world_w, world_h);
+            let wx = cam_x + (px as f64 - center_px) * SCALE;
+            let wy = cam_y + (py as f64 - center_py) * SCALE;
+            let wrapped_x = ((wx % ww) + ww) % ww;
+            let wrapped_y = ((wy % wh) + wh) % wh;
+            pixels[py * w + px] = world_pixel_color(
+                wrapped_x.floor() as i64, wrapped_y.floor() as i64,
+                ww as i64, wh as i64,
+            );
         }
     }
 
     // Draw bullets as pokeballs
     for bullet in &state.bullets {
-        let sx = ((bullet.x as f64 - vp_left) / SCALE).floor() as i32;
-        let sy = ((bullet.y as f64 - vp_top) / SCALE).floor() as i32;
+        let (bx, by) = state.interpolated_pos(bullet.x, bullet.y, bullet.vx, bullet.vy);
+        let (sx, sy) = world_to_screen(
+            bx, by, cam_x, cam_y, ww, wh, center_px, center_py,
+        );
 
-        // Shadow
+        // Shadow on ground
         set_pixel(&mut pixels, w, h, sx, sy, SHADOW_COLOR);
         set_pixel(&mut pixels, w, h, sx + 1, sy, SHADOW_COLOR);
 
-        // Simple arc based on remaining TTL (higher TTL = just fired = rising)
-        let max_ttl = 42.0; // ~1.4 seconds * 30 ticks
+        // Arc based on remaining TTL
+        let max_ttl = 42.0;
         let progress = 1.0 - (bullet.ttl as f64 / max_ttl).clamp(0.0, 1.0);
         let arc_offset = (-4.0 * 6.0 * progress * (1.0 - progress)).floor() as i32;
         let arc_y = sy + arc_offset;
@@ -214,8 +239,10 @@ pub fn draw(frame: &mut Frame, state: &GameState) {
 
     // Draw players
     for player in &state.players {
-        let sx = ((player.x as f64 - vp_left) / SCALE).floor() as i32;
-        let sy = ((player.y as f64 - vp_top) / SCALE).floor() as i32;
+        let (px, py) = state.interpolated_pos(player.x, player.y, player.vx, player.vy);
+        let (sx, sy) = world_to_screen(
+            px, py, cam_x, cam_y, ww, wh, center_px, center_py,
+        );
 
         if sx < -20 || sx >= w as i32 + 20 || sy < -20 || sy >= h as i32 + 20 {
             continue;
