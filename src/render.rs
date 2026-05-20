@@ -9,7 +9,9 @@ const GRID_ACCENT_COLOR: Color = Color::Rgb(35, 35, 55);
 const BORDER_COLOR: Color = Color::Rgb(60, 60, 80);
 const PLAYER_COLOR: Color = Color::Rgb(80, 220, 100);
 const PLAYER_NOSE_COLOR: Color = Color::Rgb(140, 255, 160);
-const PROJECTILE_COLOR: Color = Color::Rgb(255, 220, 60);
+const POKEBALL_RED: Color = Color::Rgb(220, 50, 50);
+const POKEBALL_WHITE: Color = Color::Rgb(240, 240, 240);
+const SHADOW_COLOR: Color = Color::Rgb(8, 8, 15);
 
 pub struct Viewport {
     pub left: f64,
@@ -87,12 +89,31 @@ pub fn draw(frame: &mut Frame, state: &GameState) {
         }
     }
 
-    // Draw projectiles as 1x1 bright dots
+    // Draw pokeball projectiles with arc offset
     for projectile in &state.projectiles {
-        let sx = (projectile.position.0 - vp.left).floor() as i32;
-        let sy = (projectile.position.1 - vp.top).floor() as i32;
-        if sx >= 0 && sx < w as i32 && sy >= 0 && sy < h as i32 {
-            pixels[sy as usize * w + sx as usize] = PROJECTILE_COLOR;
+        let ground_x = (projectile.position.0 - vp.left).floor() as i32;
+        let ground_y = (projectile.position.1 - vp.top).floor() as i32;
+        let arc_y = ground_y + projectile.arc_offset().floor() as i32;
+
+        // Shadow on the ground
+        if ground_x >= 0 && ground_x < w as i32 && ground_y >= 0 && ground_y < h as i32 {
+            pixels[ground_y as usize * w + ground_x as usize] = SHADOW_COLOR;
+        }
+
+        // Pokeball: 2x2, top half red, bottom half white
+        for dx in 0..=1i32 {
+            let sx = ground_x + dx;
+            if sx < 0 || sx >= w as i32 {
+                continue;
+            }
+            let top = arc_y;
+            let bot = arc_y + 1;
+            if top >= 0 && top < h as i32 {
+                pixels[top as usize * w + sx as usize] = POKEBALL_RED;
+            }
+            if bot >= 0 && bot < h as i32 {
+                pixels[bot as usize * w + sx as usize] = POKEBALL_WHITE;
+            }
         }
     }
 

@@ -9,6 +9,20 @@ pub struct Projectile {
     pub position: (f64, f64),
     pub direction: (f64, f64),
     pub speed: f64,
+    pub traveled: f64,
+    pub max_range: f64,
+}
+
+impl Projectile {
+    pub fn arc_progress(&self) -> f64 {
+        (self.traveled / self.max_range).clamp(0.0, 1.0)
+    }
+
+    pub fn arc_offset(&self) -> f64 {
+        let t = self.arc_progress();
+        // Parabola: peaks at t=0.5, zero at t=0 and t=1
+        -4.0 * THROW_ARC_HEIGHT * t * (1.0 - t)
+    }
 }
 
 #[derive(Debug)]
@@ -43,11 +57,14 @@ impl GameState {
 
     pub fn tick(&mut self, dt: f64) {
         for projectile in &mut self.projectiles {
-            projectile.position.0 += projectile.direction.0 * projectile.speed * dt;
-            projectile.position.1 += projectile.direction.1 * projectile.speed * dt;
+            let dist = projectile.speed * dt;
+            projectile.position.0 += projectile.direction.0 * dist;
+            projectile.position.1 += projectile.direction.1 * dist;
+            projectile.traveled += dist;
         }
         self.projectiles.retain(|p| {
-            p.position.0 >= 0.0
+            p.traveled < p.max_range
+                && p.position.0 >= 0.0
                 && p.position.0 <= self.world_width
                 && p.position.1 >= 0.0
                 && p.position.1 <= self.world_height
@@ -85,6 +102,8 @@ impl GameState {
                     position: self.player.position,
                     direction: self.player.direction,
                     speed: PROJECTILE_SPEED,
+                    traveled: 0.0,
+                    max_range: THROW_RANGE,
                 });
             }
             Action::Quit => {}
