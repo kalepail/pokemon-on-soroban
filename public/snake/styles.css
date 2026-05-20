@@ -99,6 +99,36 @@
   --power-led:      #00E5C8;
 }
 
+.arena-link {
+  position: fixed;
+  top: 14px;
+  left: 14px;
+  z-index: 20;
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 10px;
+  border: 2px solid var(--gb-0);
+  border-radius: 0;
+  color: var(--gb-0);
+  background: color-mix(in srgb, var(--gb-3) 88%, transparent);
+  box-shadow: 3px 3px 0 var(--gb-0);
+  font-family: "Press Start 2P", monospace;
+  font-size: 8px;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.arena-link:hover,
+.arena-link:focus-visible {
+  color: var(--gb-3);
+  background: var(--gb-0);
+  box-shadow: 3px 3px 0 var(--gb-2);
+  outline: none;
+}
+
 * { box-sizing: border-box; }
 
 html, body {

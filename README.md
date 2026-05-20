@@ -6,10 +6,11 @@ Pokemon on Soroban started from a deliberately unreasonable question:
 > live on Soroban?
 
 This repo answers that with working software, not just a pitch. It contains two
-polished Pokemon-style browser games, a server-authoritative real-time
-multiplayer arena on Cloudflare Durable Objects, a Rust terminal client that
-speaks the same binary arena protocol, and a detailed Soroban design corpus for
-turning the prototype mechanics into deterministic on-chain state transitions.
+polished Pokemon-style browser games, `Pokémon Pocket Clash` as a
+server-authoritative real-time multiplayer arena on Cloudflare Durable Objects,
+a Rust terminal client that speaks the same binary arena protocol, and a
+detailed Soroban design corpus for turning the prototype mechanics into
+deterministic on-chain state transitions.
 
 The project is intentionally broader than a normal hackathon demo because the
 problem is broader than a normal dapp. A real on-chain game needs a fun client, a
@@ -41,11 +42,11 @@ It is a complete playable browser prototype with:
 This is the piece that makes the submission instantly understandable to judges:
 it feels like a real game, not a ledger demo.
 
-### 2. Real-Time Multiplayer Arena on Cloudflare
+### 2. Pokémon Pocket Clash: Real-Time Multiplayer on Cloudflare
 
-The root page is a server-authoritative multiplayer arena built on Cloudflare
-Workers, Durable Objects, hibernatable WebSockets, Canvas 2D, and a compact
-binary protocol.
+The root page, `/`, is `Pokémon Pocket Clash`: a server-authoritative
+multiplayer pokeball arena built on Cloudflare Workers, Durable Objects,
+hibernatable WebSockets, Canvas 2D, and a compact binary protocol.
 
 It includes:
 
@@ -73,9 +74,10 @@ truth.
 
 ### 3. Stellar Snake: Game Boy-Style Creature Collector
 
-Open `/snake/` for a second complete browser game: a Stellar-themed
-creature collector that fuses classic snake movement with Pokemon-like
-encounters, route progression, battles, and a collection screen.
+Open `/snake/` for a second complete browser game, implemented in
+`public/snake/`: a Stellar-themed creature collector that fuses classic snake
+movement with Pokemon-like encounters, route progression, battles, and a
+collection screen.
 
 It includes:
 
@@ -92,6 +94,8 @@ It includes:
 - Original Web Audio chiptune tracks for title, route, battle, catch, life-loss,
   and game-over states, plus sound effects.
 - A tweak panel for palette, board size, speed, and mute state.
+- A checked-in screenshot at `public/snake/screenshots/01-title.png` for quick
+  visual review.
 
 This is the most product-like prototype in the repo: it has progression, a
 collection loop, a complete screen state machine, and a cohesive handheld-game
@@ -148,7 +152,7 @@ npm run dev
 
 Open:
 
-- Main multiplayer arena: `http://localhost:8787/`
+- Pokémon Pocket Clash multiplayer arena: `http://localhost:8787/`
 - Pokemon-style game: `http://localhost:8787/pokemon/`
 - Snake: `http://localhost:8787/snake/`
 - Arena with bots: `http://localhost:8787/?bots=20`
@@ -177,9 +181,21 @@ ws://localhost:8787/ws
 
 You can pass another WebSocket URL as the first argument.
 
+## Suggested Judge Path
+
+1. Start at `/`; the bottom navigation links directly to `Pokemon` and `Snake`.
+2. Open `/pokemon/` to see the classic Pokemon-style overworld and battle loop.
+3. Open `/snake/` to see the Game Boy-style creature collector, Stellardex, and
+   original chiptune system.
+4. Use Snake's `ARENA` link to jump back to the multiplayer arena.
+5. Open `/?bots=20` to see the authoritative multiplayer arena under load.
+6. Skim `docs/research/overworld-soroban.md` and
+   `docs/research/battle-mechanics.md` to see how the prototypes map to
+   deterministic Soroban state transitions.
+
 ## Controls
 
-### Multiplayer Arena
+### Pokémon Pocket Clash
 
 - `ArrowLeft` / `A`: turn left
 - `ArrowRight` / `D`: turn right
@@ -207,6 +223,7 @@ You can pass another WebSocket URL as the first argument.
 - `Enter` / `Space` / `Z`: confirm
 - `Esc` / `P`: pause or back
 - On-screen D-pad, A, B, Start, and Select mirror the keyboard controls
+- `ARENA`: fixed link back to the root multiplayer arena
 
 ## Architecture
 

@@ -18,6 +18,11 @@ original audio, collection loops, and edge deployment. The result is not a thin
 demo. It is a multi-layer prototype and architecture package that shows what an
 on-chain Pokemon-like game could actually become.
 
+For judges, the shortest path is: start at `/`, use the in-app links to play
+`/pokemon/` and `/snake/`, then open `/?bots=20`. That shows the classic
+Pokemon loop, the Stellar-themed collection loop, and the server-authoritative
+multiplayer system in minutes.
+
 ## What Was Shipped
 
 ### 1. A Playable Pokemon-Style Browser Game
@@ -72,17 +77,21 @@ What it includes:
   details.
 - Original chiptune music and sound effects generated through Web Audio.
 - A tweak panel for palette, board size, speed, and audio muting.
+- A checked-in title screenshot at `public/snake/screenshots/01-title.png` for
+  quick visual review.
+- A fixed `ARENA` link back to `/`, so the demo flow stays connected instead of
+  feeling like disconnected prototypes.
 
 This addition matters for judging because it proves the team did not stop after
 one attractive mockup. It adds another full gameplay loop, another interaction
 model, another audio system, another UI shell, and another expression of how
 Pokemon-like progression could feel before the Soroban state layer is attached.
 
-### 3. A Server-Authoritative Multiplayer Arena on Cloudflare
+### 3. Pokémon Pocket Clash: A Server-Authoritative Multiplayer Arena
 
-The root app is a real-time multiplayer arena built on Cloudflare Workers,
-Durable Objects, hibernatable WebSockets, Canvas 2D, Web Audio, and a custom
-binary protocol.
+The root app, `Pokémon Pocket Clash`, is a real-time multiplayer pokeball arena
+built on Cloudflare Workers, Durable Objects, hibernatable WebSockets, Canvas
+2D, Web Audio, and a custom binary protocol.
 
 This is not a decorative backend. It is an authoritative simulation:
 
