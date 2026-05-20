@@ -35,12 +35,21 @@ fn main() -> io::Result<()> {
     };
 
     eprintln!("Connecting to {}...", full_url);
-    let (mut socket, _response) = connect(&full_url).expect("failed to connect");
+    let (mut socket, _response) = if full_url.starts_with("wss://") {
+        let connector = native_tls::TlsConnector::new().expect("failed to create TLS connector");
+        let connector = tungstenite::Connector::NativeTls(connector);
+        tungstenite::client::connect_with_config(&full_url, None, 3, Some(connector))
+            .expect("failed to connect (wss)")
+    } else {
+        connect(&full_url).expect("failed to connect")
+    };
     eprintln!("Connected!");
 
     // Set socket to non-blocking so we can poll without hanging
-    if let tungstenite::stream::MaybeTlsStream::Plain(s) = socket.get_ref() {
-        s.set_nonblocking(true).ok();
+    match socket.get_ref() {
+        tungstenite::stream::MaybeTlsStream::Plain(s) => { s.set_nonblocking(true).ok(); }
+        tungstenite::stream::MaybeTlsStream::NativeTls(s) => { s.get_ref().set_nonblocking(true).ok(); }
+        _ => {}
     }
 
     enable_raw_mode()?;
