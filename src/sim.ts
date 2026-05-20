@@ -14,6 +14,7 @@ const MAX_SPEED = 1520;
 const BULLET_SPEED = 2150;
 const BULLET_TTL = Math.round(TICK_RATE * 1.4);
 const FIRE_COOLDOWN = 5;
+export const MAX_ACTIVE_BULLETS = 10;
 const BASE_RADIUS = 34;
 
 const cosTable = new Int16Array(ANGLE_STEPS);
@@ -96,7 +97,7 @@ export function respawnPlayer(player: Player, seed: number) {
   player.respawnTicks = 0;
 }
 
-export function stepPlayer(player: Player): Bullet | null {
+export function stepPlayer(player: Player, activeBulletCount = 0): Bullet | null {
   if (!player.alive) {
     player.respawnTicks -= 1;
     return null;
@@ -125,7 +126,7 @@ export function stepPlayer(player: Player): Bullet | null {
   player.y = wrap(player.y + Math.trunc(player.vy / TICK_RATE), WORLD_H);
 
   if (player.fireCooldown > 0) player.fireCooldown -= 1;
-  if ((player.buttons & Button.Fire) && player.fireCooldown === 0) {
+  if ((player.buttons & Button.Fire) && player.fireCooldown === 0 && activeBulletCount < MAX_ACTIVE_BULLETS) {
     player.fireCooldown = FIRE_COOLDOWN;
     return {
       id: 0,

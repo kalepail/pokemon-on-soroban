@@ -148,11 +148,13 @@ export class Arena extends DurableObject<Env> {
     this.pruneDisconnectedPlayers();
     this.updateBots();
 
+    const bulletCounts = this.countBulletsByOwner();
     for (const player of this.players.values()) {
-      const bullet = stepPlayer(player);
+      const bullet = stepPlayer(player, bulletCounts.get(player.id) ?? 0);
       if (bullet) {
         bullet.id = this.nextBulletId++;
         this.bullets.set(bullet.id, bullet);
+        bulletCounts.set(player.id, (bulletCounts.get(player.id) ?? 0) + 1);
       }
     }
 
@@ -189,6 +191,14 @@ export class Arena extends DurableObject<Env> {
       const ackSeq = player?.lastSeq ?? 0;
       ws.send(this.buildSnapshot(playerId, ackSeq));
     }
+  }
+
+  private countBulletsByOwner(): Map<number, number> {
+    const counts = new Map<number, number>();
+    for (const bullet of this.bullets.values()) {
+      counts.set(bullet.ownerId, (counts.get(bullet.ownerId) ?? 0) + 1);
+    }
+    return counts;
   }
 
   private pruneDisconnectedPlayers() {
