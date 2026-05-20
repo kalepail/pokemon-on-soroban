@@ -184,12 +184,13 @@ export class Arena extends DurableObject<Env> {
 
   private broadcastSnapshots() {
     const sockets = this.ctx.getWebSockets();
+    const snapshot = this.buildSharedSnapshot();
     for (const ws of sockets) {
       if (ws.readyState !== WebSocket.OPEN) continue;
       const playerId = this.socketPlayers.get(ws) ?? safeAttachment(ws)?.playerId ?? 0;
       const player = this.players.get(playerId);
       const ackSeq = player?.lastSeq ?? 0;
-      ws.send(this.buildSnapshot(playerId, ackSeq));
+      ws.send(this.buildClientSnapshot(snapshot, playerId, ackSeq));
     }
   }
 
@@ -289,7 +290,7 @@ export class Arena extends DurableObject<Env> {
     }
   }
 
-  private buildSnapshot(selfId: number, ackSeq: number): ArrayBuffer {
+  private buildSharedSnapshot(): ArrayBuffer {
     const players = [...this.players.values()];
     const bullets = [...this.bullets.values()];
     const size = 12 + players.length * PLAYER_BYTES + 2 + bullets.length * BULLET_BYTES;
@@ -302,9 +303,10 @@ export class Arena extends DurableObject<Env> {
     offset += 1;
     view.setUint32(offset, this.tick, true);
     offset += 4;
-    view.setUint16(offset, ackSeq, true);
+    // ackSeq and selfId are filled per socket in buildClientSnapshot().
+    view.setUint16(offset, 0, true);
     offset += 2;
-    view.setUint16(offset, selfId, true);
+    view.setUint16(offset, 0, true);
     offset += 2;
     view.setUint16(offset, players.length, true);
     offset += 2;
@@ -351,6 +353,14 @@ export class Arena extends DurableObject<Env> {
       offset += 1;
     }
 
+    return buffer;
+  }
+
+  private buildClientSnapshot(snapshot: ArrayBuffer, selfId: number, ackSeq: number): ArrayBuffer {
+    const buffer = snapshot.slice(0);
+    const view = new DataView(buffer);
+    view.setUint16(6, ackSeq, true);
+    view.setUint16(8, selfId, true);
     return buffer;
   }
 }
