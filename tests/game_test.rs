@@ -1,4 +1,4 @@
-use pokemon_on_soroban::game::{Action, Direction, Player, Projectile, GameState};
+use pokemon_on_soroban::game::{Action, Direction, Projectile, GameState};
 use pokemon_on_soroban::constants::*;
 
 #[test]
