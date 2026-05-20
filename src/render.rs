@@ -3,16 +3,16 @@ use ratatui::style::{Color, Style};
 
 use crate::game::GameState;
 
-const BG_COLOR: Color = Color::Rgb(15, 15, 25);
-const GRID_COLOR: Color = Color::Rgb(25, 25, 40);
-const GRID_ACCENT_COLOR: Color = Color::Rgb(35, 35, 55);
-const BORDER_COLOR: Color = Color::Rgb(60, 60, 80);
+const OUTSIDE_COLOR: Color = Color::Rgb(30, 20, 10);
 const PLAYER_COLOR: Color = Color::Rgb(80, 220, 100);
 const PLAYER_NOSE_COLOR: Color = Color::Rgb(140, 255, 160);
 const POKEBALL_RED: Color = Color::Rgb(220, 50, 50);
 const POKEBALL_WHITE: Color = Color::Rgb(240, 240, 240);
 const POKEBALL_BAND: Color = Color::Rgb(40, 40, 40);
-const SHADOW_COLOR: Color = Color::Rgb(8, 8, 15);
+const SHADOW_COLOR: Color = Color::Rgb(20, 35, 10);
+const FENCE_POST: Color = Color::Rgb(90, 60, 30);
+const FENCE_RAIL: Color = Color::Rgb(110, 75, 40);
+const FENCE_TOP: Color = Color::Rgb(130, 90, 50);
 
 pub struct Viewport {
     pub left: f64,
@@ -46,23 +46,79 @@ pub fn compute_viewport(
     }
 }
 
+// Simple deterministic hash for grass variation
+fn pixel_hash(x: i64, y: i64) -> u32 {
+    let mut h = (x.wrapping_mul(374761393) ^ y.wrapping_mul(668265263)) as u32;
+    h = h.wrapping_mul(1274126177);
+    h ^= h >> 16;
+    h
+}
+
+fn grass_color(wx: i64, wy: i64) -> Color {
+    let h = pixel_hash(wx, wy);
+    let variant = h % 100;
+
+    // Base grass with subtle variation
+    let base_g: u8 = match variant {
+        0..=2 => 90,    // dark patch
+        3..=8 => 70,    // slightly dark
+        90..=94 => 55,  // little flower/clover
+        95..=97 => 50,  // dandelion yellow tint
+        _ => 60,        // normal grass
+    };
+
+    let r = match variant {
+        90..=94 => 45,  // clover - slightly different
+        95..=97 => 70,  // dandelion
+        _ => 25 + (h % 15) as u8,
+    };
+
+    let g = base_g + (h % 20) as u8;
+
+    let b = match variant {
+        90..=94 => 30,
+        95..=97 => 15,
+        _ => 10 + (h % 10) as u8,
+    };
+
+    Color::Rgb(r, g, b)
+}
+
 fn world_pixel_color(wx: i64, wy: i64, world_width: f64, world_height: f64) -> Color {
     let w = world_width as i64;
     let h = world_height as i64;
 
     if wx < 0 || wx >= w || wy < 0 || wy >= h {
-        return BG_COLOR;
+        return OUTSIDE_COLOR;
     }
-    if wx == 0 || wx == w - 1 || wy == 0 || wy == h - 1 {
-        return BORDER_COLOR;
+
+    // Fence: 3 pixels thick border
+    let from_left = wx;
+    let from_right = w - 1 - wx;
+    let from_top = wy;
+    let from_bottom = h - 1 - wy;
+    let dist_to_edge = from_left.min(from_right).min(from_top).min(from_bottom);
+
+    if dist_to_edge == 0 {
+        // Fence posts every 8 cells, rail between
+        if wx % 8 == 0 || wy % 8 == 0 {
+            return FENCE_POST;
+        }
+        return FENCE_RAIL;
     }
-    if wx % 10 == 0 && wy % 10 == 0 {
-        return GRID_ACCENT_COLOR;
+    if dist_to_edge == 1 {
+        // Top rail of fence
+        if wx % 8 == 0 || wy % 8 == 0 {
+            return FENCE_TOP;
+        }
+        return FENCE_RAIL;
     }
-    if wx % 10 == 0 || wy % 10 == 0 {
-        return GRID_COLOR;
+    if dist_to_edge == 2 {
+        // Inner fence edge - slightly worn grass
+        return Color::Rgb(35, 55, 15);
     }
-    BG_COLOR
+
+    grass_color(wx, wy)
 }
 
 fn set_pixel(pixels: &mut [Color], w: usize, h: usize, x: i32, y: i32, color: Color) {
@@ -159,7 +215,7 @@ pub fn draw(frame: &mut Frame, state: &GameState) {
 
     let w = vp.width;
     let h = vp.height;
-    let mut pixels = vec![BG_COLOR; w * h];
+    let mut pixels = vec![OUTSIDE_COLOR; w * h];
 
     // Draw world background
     for py in 0..h {
@@ -215,8 +271,8 @@ pub fn draw(frame: &mut Frame, state: &GameState) {
         let bot_y = top_y + 1;
         for col in 0..area.width {
             let x = col as usize;
-            let top_color = if top_y < h { pixels[top_y * w + x] } else { BG_COLOR };
-            let bot_color = if bot_y < h { pixels[bot_y * w + x] } else { BG_COLOR };
+            let top_color = if top_y < h { pixels[top_y * w + x] } else { OUTSIDE_COLOR };
+            let bot_color = if bot_y < h { pixels[bot_y * w + x] } else { OUTSIDE_COLOR };
 
             let cell = &mut buf[(area.x + col, area.y + row)];
             cell.set_char('▀');
