@@ -107,6 +107,8 @@ const audio = {
   muted: false,
   thrustOsc: null,
   thrustGain: null,
+  musicTimer: 0,
+  musicStep: 0,
   lastFireAt: 0,
 };
 
@@ -198,7 +200,7 @@ function readPacket(buffer) {
     serverTick = view.getUint32(4, true);
     WORLD.w = view.getUint16(8, true);
     WORLD.h = view.getUint16(10, true);
-    shipEl.textContent = `#${selfId}`;
+    shipEl.textContent = `Trainer #${selfId}`;
     return;
   }
   if (type === Packet.Death) {
@@ -361,7 +363,7 @@ function showDeathModal(score) {
   predictedFireCooldown = 0;
   resetStick();
   setFireButton(false);
-  statusEl.textContent = "dead";
+  statusEl.textContent = "fainted";
   scoreEl.textContent = String(score);
   if (deathScoreEl) deathScoreEl.textContent = String(score);
   if (deathModalEl) deathModalEl.hidden = false;
@@ -419,8 +421,8 @@ function renderLeaderboard() {
   const fragment = document.createDocumentFragment();
   for (const player of leaders) {
     const li = document.createElement("li");
-    li.textContent = `#${player.id}  ${player.score}`;
-    if (player.id === selfId) li.style.color = "#50f0c8";
+    li.textContent = `Trainer #${player.id}  ${player.score}`;
+    if (player.id === selfId) li.style.color = "#1f7a46";
     fragment.append(li);
   }
   leaderboardEl.replaceChildren(fragment);
@@ -457,7 +459,7 @@ function draw(now) {
   updateAudio();
   updateVfx(dt);
 
-  ctx.fillStyle = "#05080c";
+  ctx.fillStyle = "#bde886";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   if (SHOW_DETAIL) {
     drawNebulae();
@@ -498,9 +500,9 @@ function updateQuality(dt) {
     fps: Math.round(perf.fps),
     quality: perf.quality,
     particles: particles.length,
-    bullets: renderBullets.size,
-    predictedBullets: predictedBullets.length,
-    ships: renderPlayers.size,
+    pokeBalls: renderBullets.size,
+    predictedPokeBalls: predictedBullets.length,
+    pokemon: renderPlayers.size,
     snapshotAgeMs: Math.round(performance.now() - lastSnapshotAt),
     pendingInputs: pendingInputs.length,
     ackSeq: lastAckSeq,
@@ -702,7 +704,7 @@ function drawBackdrop() {
     const star = stars[i];
     const point = toScreen(star.x, star.y, star.layer);
     if (!isNearScreen(point.x, point.y, 20)) continue;
-    ctx.fillStyle = `rgba(210, 244, 255, ${star.a})`;
+    ctx.fillStyle = `rgba(255, 246, 176, ${star.a * 1.45})`;
     ctx.beginPath();
     ctx.arc(point.x, point.y, star.r * devicePixelRatio * 0.62, 0, Math.PI * 2);
     ctx.fill();
@@ -719,9 +721,9 @@ function drawNebulae() {
     const radius = cloud.radius * devicePixelRatio * camera.zoom * 0.9;
     if (!isNearScreen(point.x, point.y, radius)) continue;
     const grad = ctx.createRadialGradient(point.x, point.y, 0, point.x, point.y, radius);
-    grad.addColorStop(0, `hsla(${cloud.hue} 90% 58% / ${cloud.alpha * 2.4})`);
-    grad.addColorStop(0.45, `hsla(${cloud.hue} 90% 45% / ${cloud.alpha})`);
-    grad.addColorStop(1, `hsla(${cloud.hue} 90% 35% / 0)`);
+    grad.addColorStop(0, `hsla(${96 + cloud.hue % 44} 72% 58% / ${cloud.alpha * 3})`);
+    grad.addColorStop(0.45, `hsla(${188 + cloud.hue % 36} 72% 62% / ${cloud.alpha})`);
+    grad.addColorStop(1, `hsla(${96 + cloud.hue % 44} 80% 50% / 0)`);
     ctx.fillStyle = grad;
     ctx.beginPath();
     ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
@@ -737,7 +739,7 @@ function drawGrid() {
   ctx.lineWidth = 1;
   for (let x = Math.floor(view.left / grid) * grid; x <= view.right; x += grid) {
     const p = toScreen(wrap(x, WORLD.w), camera.y);
-    ctx.strokeStyle = x % major === 0 ? "rgba(80, 240, 200, 0.17)" : "rgba(80, 240, 200, 0.055)";
+    ctx.strokeStyle = x % major === 0 ? "rgba(42, 117, 187, 0.16)" : "rgba(31, 122, 70, 0.07)";
     ctx.beginPath();
     ctx.moveTo(p.x, 0);
     ctx.lineTo(p.x, canvas.height);
@@ -745,7 +747,7 @@ function drawGrid() {
   }
   for (let y = Math.floor(view.top / grid) * grid; y <= view.bottom; y += grid) {
     const p = toScreen(camera.x, wrap(y, WORLD.h));
-    ctx.strokeStyle = y % major === 0 ? "rgba(255, 195, 77, 0.13)" : "rgba(80, 240, 200, 0.05)";
+    ctx.strokeStyle = y % major === 0 ? "rgba(255, 203, 5, 0.18)" : "rgba(31, 122, 70, 0.06)";
     ctx.beginPath();
     ctx.moveTo(0, p.y);
     ctx.lineTo(canvas.width, p.y);
@@ -761,21 +763,16 @@ function drawDebris(now) {
     if (!isNearScreen(point.x, point.y, size * 4)) continue;
     ctx.save();
     ctx.translate(point.x, point.y);
-    ctx.rotate(rock.spin + now * 0.00004 * ((rock.sides % 2) ? 1 : -1));
-    ctx.fillStyle = `hsla(${rock.hue} 30% 34% / 0.28)`;
-    ctx.strokeStyle = `hsla(${rock.hue} 40% 68% / 0.24)`;
+    ctx.rotate(Math.sin(now * 0.001 + rock.spin) * 0.12);
+    ctx.fillStyle = "rgba(46, 146, 73, 0.28)";
+    ctx.strokeStyle = "rgba(18, 100, 50, 0.22)";
     ctx.lineWidth = 1;
     ctx.beginPath();
-    for (let i = 0; i < rock.sides; i += 1) {
-      const a = (i / rock.sides) * Math.PI * 2;
-      const wobble = 0.72 + (((i * 37 + rock.size) % 41) / 100);
-      const px = Math.cos(a) * size * wobble;
-      const py = Math.sin(a) * size * wobble;
-      if (i === 0) ctx.moveTo(px, py);
-      else ctx.lineTo(px, py);
+    for (let blade = 0; blade < rock.sides + 2; blade += 1) {
+      const offset = (blade - rock.sides / 2) * size * 0.18;
+      ctx.moveTo(offset, size * 0.7);
+      ctx.quadraticCurveTo(offset + size * 0.2, 0, offset + Math.sin(blade) * size * 0.45, -size * (0.8 + blade * 0.02));
     }
-    ctx.closePath();
-    ctx.fill();
     ctx.stroke();
     ctx.restore();
   }
@@ -787,18 +784,20 @@ function drawPlayers() {
     if (player.id === selfId) continue;
     const point = toScreen(player.x, player.y);
     if (!isNearScreen(point.x, point.y, 120)) continue;
-    drawShip(point.x, point.y, player);
+    drawPokemon(point.x, point.y, player);
   }
   if (!self) return;
   const point = toScreen(self.x, self.y);
-  if (isNearScreen(point.x, point.y, 120)) drawShip(point.x, point.y, self);
+  if (isNearScreen(point.x, point.y, 120)) drawPokemon(point.x, point.y, self);
 }
 
-function drawShip(x, y, player) {
+function drawPokemon(x, y, player) {
   const angle = (player.angle / 1024) * Math.PI * 2;
   const scale = visualScale(0.46);
   const r = player.radius * scale;
   const isSelf = player.id === selfId;
+  const bodyHue = isSelf ? 48 : (player.hue + 18) % 360;
+  const accentHue = isSelf ? 210 : (player.hue + 116) % 360;
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(angle);
@@ -808,59 +807,94 @@ function drawShip(x, y, player) {
   if (SHOW_EFFECTS && isSelf && speed > 80 && perf.quality > 0) {
     const wake = clamp(speed / 860, 0, 1);
     const grad = ctx.createLinearGradient(-r * 0.6, 0, -r * (2.8 + wake), 0);
-    grad.addColorStop(0, "rgba(80,240,200,0.22)");
-    grad.addColorStop(1, "rgba(80,240,200,0)");
+    grad.addColorStop(0, "rgba(255,203,5,0.26)");
+    grad.addColorStop(1, "rgba(255,203,5,0)");
     ctx.fillStyle = grad;
     ctx.beginPath();
-    ctx.ellipse(-r * 1.25, 0, r * (1.5 + wake), r * 0.52, 0, 0, Math.PI * 2);
+    ctx.ellipse(-r * 1.15, 0, r * (1.3 + wake), r * 0.46, 0, 0, Math.PI * 2);
     ctx.fill();
   }
 
   if (player.thrustGlow > 0 || (isSelf && frameButtons & Button.Thrust)) {
-    const flame = (0.65 + Math.random() * 0.55) * (player.thrustGlow || 0.8);
+    const dash = (0.65 + Math.random() * 0.35) * (player.thrustGlow || 0.8);
     if (SHOW_EFFECTS && perf.quality > 0) {
-      const grad = ctx.createLinearGradient(-r * 0.45, 0, -r * (2.2 + flame), 0);
-      grad.addColorStop(0, "rgba(255,245,199,0.9)");
-      grad.addColorStop(0.38, "rgba(255,112,67,0.65)");
-      grad.addColorStop(1, "rgba(80,240,200,0)");
+      const grad = ctx.createLinearGradient(-r * 0.55, 0, -r * (2 + dash), 0);
+      grad.addColorStop(0, "rgba(255,255,255,0.82)");
+      grad.addColorStop(0.42, "rgba(255,203,5,0.5)");
+      grad.addColorStop(1, "rgba(46,146,73,0)");
       ctx.fillStyle = grad;
     } else {
-      ctx.fillStyle = "rgba(255,112,67,0.72)";
+      ctx.fillStyle = "rgba(255,203,5,0.5)";
     }
     ctx.beginPath();
-    ctx.moveTo(-r * 0.45, -r * 0.32);
-    ctx.lineTo(-r * (1.8 + flame), 0);
-    ctx.lineTo(-r * 0.45, r * 0.32);
-    ctx.closePath();
+    ctx.ellipse(-r * 1.25, 0, r * (0.8 + dash), r * 0.32, 0, 0, Math.PI * 2);
     ctx.fill();
   }
 
   if (SHOW_EFFECTS && Math.abs(player.turnGlow) > 0) {
-    ctx.strokeStyle = player.turnGlow < 0 ? "rgba(255,195,77,0.65)" : "rgba(80,240,200,0.65)";
+    ctx.strokeStyle = player.turnGlow < 0 ? "rgba(238,21,21,0.62)" : "rgba(42,117,187,0.62)";
     ctx.lineWidth = Math.max(1, 2 * devicePixelRatio);
     ctx.beginPath();
     ctx.arc(0, 0, r * 1.55, player.turnGlow < 0 ? -2.8 : -0.35, player.turnGlow < 0 ? -1.25 : 1.2);
     ctx.stroke();
   }
 
-  ctx.shadowBlur = SHOW_EFFECTS && perf.quality > 0 ? (isSelf ? 18 * devicePixelRatio : 5 * devicePixelRatio) : 0;
-  ctx.shadowColor = isSelf ? "#50f0c8" : `hsl(${player.hue} 86% 58%)`;
-  ctx.fillStyle = `hsl(${player.hue} 86% 58%)`;
-  ctx.strokeStyle = isSelf ? "#fff5c7" : "rgba(232, 247, 255, 0.68)";
+  ctx.shadowBlur = SHOW_EFFECTS && perf.quality > 0 ? (isSelf ? 16 * devicePixelRatio : 5 * devicePixelRatio) : 0;
+  ctx.shadowColor = isSelf ? "#ffcb05" : `hsl(${bodyHue} 80% 58%)`;
+  ctx.fillStyle = `hsl(${bodyHue} 82% ${isSelf ? 56 : 60}%)`;
+  ctx.strokeStyle = isSelf ? "#243746" : "rgba(36, 55, 70, 0.68)";
   ctx.lineWidth = isSelf ? 2.5 * devicePixelRatio : 1.3 * devicePixelRatio;
+
   ctx.beginPath();
-  ctx.moveTo(r * 1.25, 0);
-  ctx.lineTo(-r * 0.72, -r * 0.74);
-  ctx.lineTo(-r * 0.42, 0);
-  ctx.lineTo(-r * 0.72, r * 0.74);
+  ctx.ellipse(-r * 0.08, 0, r * 0.98, r * 0.74, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = `hsl(${bodyHue} 88% ${isSelf ? 66 : 68}%)`;
+  ctx.beginPath();
+  ctx.ellipse(r * 0.54, 0, r * 0.62, r * 0.58, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = `hsl(${accentHue} 72% 54%)`;
+  ctx.beginPath();
+  ctx.moveTo(r * 0.2, -r * 0.48);
+  ctx.lineTo(-r * 0.04, -r * 1.1);
+  ctx.lineTo(r * 0.62, -r * 0.68);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(r * 0.2, r * 0.48);
+  ctx.lineTo(-r * 0.04, r * 1.1);
+  ctx.lineTo(r * 0.62, r * 0.68);
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
 
   ctx.shadowBlur = 0;
-  ctx.fillStyle = "rgba(255,245,199,0.92)";
+  ctx.fillStyle = "#fff";
+  ctx.strokeStyle = "#243746";
+  ctx.lineWidth = Math.max(1, 1.5 * devicePixelRatio);
   ctx.beginPath();
-  ctx.arc(r * 0.18, 0, Math.max(2, r * 0.18), 0, Math.PI * 2);
+  ctx.arc(r * 0.8, -r * 0.18, Math.max(2, r * 0.13), 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = "#243746";
+  ctx.beginPath();
+  ctx.arc(r * 0.84, -r * 0.18, Math.max(1.2, r * 0.055), 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = "#243746";
+  ctx.lineWidth = Math.max(1, 1.2 * devicePixelRatio);
+  ctx.beginPath();
+  ctx.arc(r * 0.86, r * 0.12, r * 0.2, 0.15, 1.05);
+  ctx.stroke();
+
+  ctx.fillStyle = `hsl(${accentHue} 78% 50%)`;
+  ctx.beginPath();
+  ctx.ellipse(-r * 0.88, 0, r * 0.38, r * 0.24, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 }
@@ -877,30 +911,51 @@ function drawBullet(bullet, dt) {
   const to = toScreen(bullet.x + bullet.vx * dt * 0.35, bullet.y + bullet.vy * dt * 0.35);
   if (!isNearScreen(to.x, to.y, 80)) return;
   const speed = Math.max(1, Math.hypot(bullet.vx, bullet.vy));
-  const trailLength = clamp(speed * camera.zoom * 0.065, 18, 58) * devicePixelRatio;
+  const trailLength = clamp(speed * camera.zoom * 0.045, 14, 42) * devicePixelRatio;
   const from = {
     x: to.x - (bullet.vx / speed) * trailLength,
     y: to.y - (bullet.vy / speed) * trailLength,
   };
   if (!SHOW_EFFECTS || perf.quality === 0 || bullet.predicted) {
-    ctx.strokeStyle = ownerIsSelf ? "rgba(255,195,77,0.82)" : "rgba(255,70,116,0.76)";
+    ctx.strokeStyle = ownerIsSelf ? "rgba(255,203,5,0.72)" : "rgba(42,117,187,0.58)";
   } else {
     const grad = ctx.createLinearGradient(from.x, from.y, to.x, to.y);
-    grad.addColorStop(0, ownerIsSelf ? "rgba(255,195,77,0)" : "rgba(255,70,116,0)");
-    grad.addColorStop(0.5, ownerIsSelf ? "rgba(255,195,77,0.78)" : "rgba(255,70,116,0.7)");
-    grad.addColorStop(1, "rgba(255,245,199,1)");
+    grad.addColorStop(0, ownerIsSelf ? "rgba(255,203,5,0)" : "rgba(42,117,187,0)");
+    grad.addColorStop(0.58, ownerIsSelf ? "rgba(255,203,5,0.62)" : "rgba(42,117,187,0.48)");
+    grad.addColorStop(1, "rgba(255,255,255,0.95)");
     ctx.strokeStyle = grad;
   }
-  ctx.lineWidth = Math.max(2, 4 * visualScale(0.34));
+  ctx.lineWidth = Math.max(2, 3 * visualScale(0.34));
   ctx.lineCap = "round";
   ctx.beginPath();
   ctx.moveTo(from.x, from.y);
   ctx.lineTo(to.x, to.y);
   ctx.stroke();
-  ctx.fillStyle = ownerIsSelf ? "#fff5c7" : "#ff4674";
+
+  const ballR = Math.max(5, 8 * visualScale(0.34));
+  ctx.save();
+  ctx.translate(to.x, to.y);
+  ctx.rotate(Math.atan2(bullet.vy, bullet.vx));
+  ctx.fillStyle = ownerIsSelf ? "#ee1515" : "#2a75bb";
+  ctx.strokeStyle = "#243746";
+  ctx.lineWidth = Math.max(1, 1.4 * devicePixelRatio);
   ctx.beginPath();
-  ctx.arc(to.x, to.y, Math.max(2, 5 * visualScale(0.34)), 0, Math.PI * 2);
+  ctx.arc(0, 0, ballR, Math.PI, 0);
   ctx.fill();
+  ctx.beginPath();
+  ctx.arc(0, 0, ballR, 0, Math.PI);
+  ctx.fillStyle = "#fff";
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(-ballR, 0);
+  ctx.lineTo(ballR, 0);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(0, 0, ballR * 0.34, 0, Math.PI * 2);
+  ctx.fillStyle = "#fff";
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
 }
 
 function drawParticles() {
@@ -916,7 +971,7 @@ function drawParticles() {
   for (const flash of muzzleFlashes) {
     const point = toScreen(flash.x, flash.y);
     const a = Math.max(0, flash.life / flash.max);
-    ctx.fillStyle = `rgba(255,245,199,${a})`;
+    ctx.fillStyle = `rgba(255,203,5,${a})`;
     ctx.beginPath();
     ctx.arc(point.x, point.y, flash.size * (1.4 - a) * visualScale(0.34), 0, Math.PI * 2);
     ctx.fill();
@@ -927,7 +982,7 @@ function drawRings() {
   for (const ring of rings) {
     const point = toScreen(ring.x, ring.y);
     const a = Math.max(0, ring.life / ring.max);
-    ctx.strokeStyle = `hsla(${ring.hue} 90% 65% / ${a * 0.75})`;
+    ctx.strokeStyle = `hsla(${ring.hue} 82% 58% / ${a * 0.75})`;
     ctx.lineWidth = Math.max(1, 2 * devicePixelRatio);
     ctx.beginPath();
     ctx.arc(point.x, point.y, ring.size * (1.15 - a) * visualScale(0.32), 0, Math.PI * 2);
@@ -938,7 +993,7 @@ function drawRings() {
 function drawReticle() {
   const cx = canvas.width / 2;
   const cy = canvas.height / 2;
-  ctx.strokeStyle = "rgba(80, 240, 200, 0.36)";
+  ctx.strokeStyle = "rgba(238, 21, 21, 0.34)";
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.arc(cx, cy, 20 * devicePixelRatio, 0, Math.PI * 2);
@@ -956,8 +1011,8 @@ function drawMinimap() {
   const x = canvas.width - w - 18 * dpr;
   const y = canvas.height - h - 18 * dpr;
   ctx.save();
-  ctx.fillStyle = "rgba(7,12,18,0.76)";
-  ctx.strokeStyle = "rgba(205,240,255,0.24)";
+  ctx.fillStyle = "rgba(255,255,255,0.78)";
+  ctx.strokeStyle = "rgba(42,117,187,0.45)";
   ctx.lineWidth = 1;
   roundRect(x, y, w, h, 8 * dpr);
   ctx.fill();
@@ -965,13 +1020,13 @@ function drawMinimap() {
 
   const self = renderPlayers.get(selfId);
   if (self) {
-    ctx.strokeStyle = "rgba(80,240,200,0.2)";
+    ctx.strokeStyle = "rgba(238,21,21,0.28)";
     ctx.strokeRect(x + (self.x / WORLD.w) * w - w * 0.12, y + (self.y / WORLD.h) * h - h * 0.12, w * 0.24, h * 0.24);
   }
   for (const player of renderPlayers.values()) {
     const px = x + (player.x / WORLD.w) * w;
     const py = y + (player.y / WORLD.h) * h;
-    ctx.fillStyle = player.id === selfId ? "#fff5c7" : `hsl(${player.hue} 86% 58%)`;
+    ctx.fillStyle = player.id === selfId ? "#ee1515" : `hsl(${(player.hue + 18) % 360} 82% 58%)`;
     ctx.beginPath();
     ctx.arc(px, py, (player.id === selfId ? 4 : 2.4) * dpr, 0, Math.PI * 2);
     ctx.fill();
@@ -994,13 +1049,15 @@ function drawOffscreenIndicators() {
     ctx.save();
     ctx.translate(edge.x, edge.y);
     ctx.rotate(angle);
-    ctx.fillStyle = `hsla(${player.hue} 90% 62% / 0.72)`;
+    ctx.fillStyle = `hsla(${(player.hue + 18) % 360} 82% 54% / 0.72)`;
+    ctx.strokeStyle = "#243746";
+    ctx.lineWidth = Math.max(1, 1.2 * devicePixelRatio);
     ctx.beginPath();
-    ctx.moveTo(14 * devicePixelRatio, 0);
-    ctx.lineTo(-9 * devicePixelRatio, 7 * devicePixelRatio);
-    ctx.lineTo(-9 * devicePixelRatio, -7 * devicePixelRatio);
+    ctx.arc(0, 0, 10 * devicePixelRatio, -0.85, 0.85);
+    ctx.lineTo(16 * devicePixelRatio, 0);
     ctx.closePath();
     ctx.fill();
+    ctx.stroke();
     ctx.restore();
   }
 }
@@ -1067,18 +1124,32 @@ function unlockAudio() {
   audio.master.connect(compressor);
   compressor.connect(audio.ctx.destination);
   startThrustHum();
+  startPocketMelody();
 }
 
 function startThrustHum() {
   if (!audio.ctx || audio.thrustOsc) return;
   audio.thrustOsc = audio.ctx.createOscillator();
   audio.thrustGain = audio.ctx.createGain();
-  audio.thrustOsc.type = "sawtooth";
-  audio.thrustOsc.frequency.value = 70;
+  audio.thrustOsc.type = "triangle";
+  audio.thrustOsc.frequency.value = 110;
   audio.thrustGain.gain.value = 0;
   audio.thrustOsc.connect(audio.thrustGain);
   audio.thrustGain.connect(audio.master);
   audio.thrustOsc.start();
+}
+
+function startPocketMelody() {
+  if (!audio.ctx || audio.musicTimer) return;
+  const notes = [523.25, 659.25, 783.99, 659.25, 587.33, 739.99, 880, 739.99];
+  audio.musicTimer = window.setInterval(() => {
+    if (!audio.ctx || audio.muted || document.hidden) return;
+    const note = notes[audio.musicStep % notes.length];
+    const accent = audio.musicStep % 4 === 0;
+    blip(note, accent ? 0.032 : 0.018, 0.085, "square", 0);
+    if (accent) blip(note / 2, 0.018, 0.11, "triangle", 0);
+    audio.musicStep += 1;
+  }, 285);
 }
 
 function updateAudio() {
@@ -1086,9 +1157,9 @@ function updateAudio() {
   const self = renderPlayers.get(selfId);
   const thrust = self && frameButtons & Button.Thrust ? 1 : 0;
   const now = audio.ctx.currentTime;
-  audio.thrustGain.gain.setTargetAtTime(thrust ? 0.07 : 0.0001, now, 0.05);
+  audio.thrustGain.gain.setTargetAtTime(thrust ? 0.035 : 0.0001, now, 0.05);
   if (audio.thrustOsc && self) {
-    audio.thrustOsc.frequency.setTargetAtTime(62 + Math.min(80, Math.hypot(self.vx, self.vy) * 0.08), now, 0.07);
+    audio.thrustOsc.frequency.setTargetAtTime(146 + Math.min(120, Math.hypot(self.vx, self.vy) * 0.09), now, 0.07);
   }
 }
 
@@ -1097,13 +1168,15 @@ function playFire(local) {
   const now = audio.ctx.currentTime;
   if (now - audio.lastFireAt < 0.045) return;
   audio.lastFireAt = now;
-  blip(local ? 520 : 380, local ? 0.12 : 0.045, 0.055, "square", -900);
+  blip(local ? 1046 : 784, local ? 0.105 : 0.04, 0.06, "square", -220);
+  blip(local ? 1568 : 1174, local ? 0.055 : 0.025, 0.045, "triangle", -180);
 }
 
 function playImpact(local) {
   if (!audio.ctx || audio.muted) return;
-  noiseBurst(local ? 0.16 : 0.07, 0.16);
-  blip(local ? 130 : 190, local ? 0.16 : 0.07, 0.18, "sawtooth", -420);
+  noiseBurst(local ? 0.11 : 0.045, 0.12);
+  blip(local ? 196 : 247, local ? 0.13 : 0.06, 0.16, "triangle", -80);
+  blip(local ? 130.81 : 164.81, local ? 0.07 : 0.035, 0.2, "square", -40);
 }
 
 function blip(freq, volume, duration, type, slide) {

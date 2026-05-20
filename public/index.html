@@ -3,27 +3,27 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Asteroid Arena</title>
+    <title>Pokémon Pocket Clash</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
     <main class="shell">
       <section class="hud hud-left">
-        <div class="brand">Asteroid Arena</div>
+        <div class="brand">Pokémon Pocket Clash</div>
         <div class="metric"><span>Status</span><strong id="status">connecting</strong></div>
-        <div class="metric metric-meta"><span>Ship</span><strong id="ship">--</strong></div>
-        <div class="metric metric-meta"><span>Ships</span><strong id="ships">0</strong></div>
+        <div class="metric metric-meta"><span>Trainer</span><strong id="ship">--</strong></div>
+        <div class="metric metric-meta"><span>Pokémon</span><strong id="ships">0</strong></div>
         <div class="metric"><span>Score</span><strong id="score">0</strong></div>
       </section>
 
-      <canvas id="arena" aria-label="Asteroid Arena game board"></canvas>
+      <canvas id="arena" aria-label="Pokémon Pocket Clash battle field"></canvas>
 
       <aside class="hud hud-right">
-        <div class="panel-title">Leaderboard</div>
+        <div class="panel-title">Trainer Board</div>
         <ol id="leaderboard"></ol>
       </aside>
 
-      <a href="/pokemon/" class="pocket-arena-link" title="Play Pocket Arena">🎮 Pocket Arena</a>
+      <a href="/pokemon/" class="pocket-arena-link" title="Play Pocket Arena">Pocket Arena</a>
 
       <section class="touch-controls" aria-label="Touch controls">
         <div class="stick-zone" id="stick-zone" aria-label="Move joystick">
@@ -31,14 +31,14 @@
             <div class="stick-knob" id="stick-knob"></div>
           </div>
         </div>
-        <button class="fire-button" id="fire-button" type="button" aria-label="Fire">Fire</button>
+        <button class="fire-button" id="fire-button" type="button" aria-label="Throw Poké Ball">Throw</button>
       </section>
 
       <section class="death-modal" id="death-modal" hidden>
         <div class="death-panel" role="dialog" aria-modal="true" aria-labelledby="death-title">
-          <div class="panel-title" id="death-title">You Died</div>
+          <div class="panel-title" id="death-title">You Fainted</div>
           <div class="death-score">Score <strong id="death-score">0</strong></div>
-          <button class="respawn-button" id="respawn-button" type="button">Respawn</button>
+          <button class="respawn-button" id="respawn-button" type="button">Heal Up</button>
         </div>
       </section>
     </main>
