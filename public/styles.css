@@ -297,3 +297,31 @@ body {
     display: block;
   }
 }
+
+.pocket-arena-link {
+  position: absolute;
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 1rem;
+  background: rgba(7, 12, 18, 0.78);
+  border: 1px solid rgba(110, 86, 207, 0.5);
+  border-radius: 100px;
+  color: #bf9aee;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  backdrop-filter: blur(6px);
+  white-space: nowrap;
+}
+.pocket-arena-link:hover {
+  border-color: rgba(110, 86, 207, 0.9);
+  color: #e8d8ff;
+  background: rgba(70, 40, 160, 0.35);
+}
