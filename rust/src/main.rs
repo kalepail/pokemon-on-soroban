@@ -29,7 +29,7 @@ fn main() -> io::Result<()> {
     let full_url = if url_str.contains('?') {
         format!("{}&sid={}", url_str, sid)
     } else {
-        format!("{}?sid={}&bots=3", url_str, sid)
+        format!("{}?sid={}&bots=10", url_str, sid)
     };
 
     eprintln!("Connecting to {}...", full_url);

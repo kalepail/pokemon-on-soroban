@@ -20,7 +20,7 @@ const FENCE_TOP: Color = Color::Rgb(130, 90, 50);
 const DEAD_COLOR: Color = Color::Rgb(80, 80, 80);
 
 // World units per pixel — controls zoom level
-const SCALE: f64 = 12.0;
+const SCALE: f64 = 40.0;
 
 fn pixel_hash(x: i64, y: i64) -> u32 {
     let mut h = (x.wrapping_mul(374761393) ^ y.wrapping_mul(668265263)) as u32;
