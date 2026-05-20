@@ -54,6 +54,9 @@ impl KeyState {
         if self.held.contains(&KeyCode::Up) {
             b |= protocol::BUTTON_THRUST;
         }
+        if self.held.contains(&KeyCode::Down) {
+            b |= protocol::BUTTON_REVERSE;
+        }
         if self.just_pressed.contains(&KeyCode::Char(' ')) {
             b |= protocol::BUTTON_FIRE;
         }

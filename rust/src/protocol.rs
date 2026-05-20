@@ -11,6 +11,7 @@ pub const BUTTON_LEFT: u8 = 1 << 0;
 pub const BUTTON_RIGHT: u8 = 1 << 1;
 pub const BUTTON_THRUST: u8 = 1 << 2;
 pub const BUTTON_FIRE: u8 = 1 << 3;
+pub const BUTTON_REVERSE: u8 = 1 << 5;
 
 #[derive(Debug)]
 pub struct HelloPacket {

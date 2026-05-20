@@ -111,10 +111,13 @@ export function stepPlayer(player: Player, activeBulletCount = 0): Bullet | null
     player.angle = positiveModulo(player.angle + TURN_PER_TICK, ANGLE_STEPS);
   }
 
-  // Direct movement: walk forward at fixed speed when thrust is held
+  // Direct movement: walk forward/backward at fixed speed
   if (player.buttons & Button.Thrust) {
     player.vx = Math.trunc((cosTable[player.angle] * WALK_SPEED) / DIR_SCALE);
     player.vy = Math.trunc((sinTable[player.angle] * WALK_SPEED) / DIR_SCALE);
+  } else if (player.buttons & Button.Reverse) {
+    player.vx = Math.trunc((-cosTable[player.angle] * WALK_SPEED) / DIR_SCALE);
+    player.vy = Math.trunc((-sinTable[player.angle] * WALK_SPEED) / DIR_SCALE);
   } else {
     player.vx = 0;
     player.vy = 0;
