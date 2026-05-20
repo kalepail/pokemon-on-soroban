@@ -1,0 +1,113 @@
+:root {
+  color-scheme: dark;
+  font-family: "Avenir Next", "Trebuchet MS", sans-serif;
+  background: #080b0f;
+  color: #e8f7ff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(0, 194, 168, 0.18), transparent 28rem),
+    radial-gradient(circle at 85% 65%, rgba(255, 195, 77, 0.14), transparent 24rem),
+    #080b0f;
+}
+
+.shell {
+  position: relative;
+  min-height: 100vh;
+}
+
+#arena {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+  background: #070a0e;
+}
+
+.hud {
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  gap: 0.55rem;
+  width: min(18rem, calc(100vw - 2rem));
+  padding: 0.85rem;
+  border: 1px solid rgba(205, 240, 255, 0.18);
+  border-radius: 8px;
+  background: rgba(7, 12, 18, 0.72);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.32);
+  backdrop-filter: blur(12px);
+}
+
+.hud-left {
+  top: 1rem;
+  left: 1rem;
+}
+
+.hud-right {
+  top: 1rem;
+  right: 1rem;
+}
+
+.brand,
+.panel-title {
+  color: #fff5c7;
+  font-size: 0.88rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.metric {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 1.6rem;
+  gap: 1rem;
+  font-size: 0.82rem;
+}
+
+.metric span,
+#leaderboard {
+  color: rgba(232, 247, 255, 0.72);
+}
+
+.metric strong {
+  color: #50f0c8;
+  font-variant-numeric: tabular-nums;
+}
+
+#leaderboard {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding-left: 1.35rem;
+  font-size: 0.84rem;
+  font-variant-numeric: tabular-nums;
+}
+
+#leaderboard li::marker {
+  color: #ffc34d;
+}
+
+@media (max-width: 760px) {
+  .hud {
+    width: calc(50vw - 1.25rem);
+    padding: 0.7rem;
+  }
+
+  .hud-right {
+    left: auto;
+    right: 0.75rem;
+  }
+
+  .hud-left {
+    left: 0.75rem;
+  }
+}

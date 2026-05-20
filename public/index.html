@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Asteroid Arena</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hud hud-left">
+        <div class="brand">Asteroid Arena</div>
+        <div class="metric"><span>Status</span><strong id="status">connecting</strong></div>
+        <div class="metric"><span>Ship</span><strong id="ship">--</strong></div>
+        <div class="metric"><span>Ships</span><strong id="ships">0</strong></div>
+        <div class="metric"><span>Score</span><strong id="score">0</strong></div>
+      </section>
+
+      <canvas id="arena" aria-label="Asteroid Arena game board"></canvas>
+
+      <aside class="hud hud-right">
+        <div class="panel-title">Leaderboard</div>
+        <ol id="leaderboard"></ol>
+      </aside>
+    </main>
+
+    <script type="module" src="/client.js"></script>
+  </body>
+</html>
