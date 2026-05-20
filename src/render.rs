@@ -1,7 +1,25 @@
+use std::f64::consts::PI;
+
 use ratatui::Frame;
 use ratatui::style::{Color, Style};
 
 use crate::game::GameState;
+
+fn direction_char(dx: f64, dy: f64) -> char {
+    let angle = dy.atan2(dx);
+    let octant = ((angle + PI) / (PI / 4.0)).floor() as i32 % 8;
+    match octant {
+        0 => '←',
+        1 => '↖',
+        2 => '↑',
+        3 => '↗',
+        4 => '→',
+        5 => '↘',
+        6 => '↓',
+        7 => '↙',
+        _ => '→',
+    }
+}
 
 pub struct Viewport {
     pub left: f64,
@@ -55,6 +73,9 @@ pub fn draw(frame: &mut Frame, state: &GameState) {
             let ch;
             let style;
 
+            let wx = world_x.floor() as i64;
+            let wy = world_y.floor() as i64;
+
             if world_x < 0.0
                 || world_x >= state.world_width
                 || world_y < 0.0
@@ -62,13 +83,19 @@ pub fn draw(frame: &mut Frame, state: &GameState) {
             {
                 ch = ' ';
                 style = Style::default();
-            } else if world_x == 0.0
-                || world_x >= state.world_width - 1.0
-                || world_y == 0.0
-                || world_y >= state.world_height - 1.0
+            } else if wx == 0
+                || wx == (state.world_width as i64 - 1)
+                || wy == 0
+                || wy == (state.world_height as i64 - 1)
             {
                 ch = '#';
                 style = Style::default().fg(Color::DarkGray);
+            } else if wx % 5 == 0 && wy % 5 == 0 {
+                ch = '·';
+                style = Style::default().fg(Color::Rgb(40, 40, 40));
+            } else if wx % 5 == 0 || wy % 5 == 0 {
+                ch = '·';
+                style = Style::default().fg(Color::Rgb(25, 25, 25));
             } else {
                 ch = ' ';
                 style = Style::default();
@@ -94,7 +121,7 @@ pub fn draw(frame: &mut Frame, state: &GameState) {
     let py = (state.player.position.1 - vp.top).floor() as i32;
     if px >= 0 && px < vp.width as i32 && py >= 0 && py < vp.height as i32 {
         let cell = &mut buf[(area.x + px as u16, area.y + py as u16)];
-        cell.set_char('@');
+        cell.set_char(direction_char(state.player.direction.0, state.player.direction.1));
         cell.set_style(Style::default().fg(Color::Green));
     }
 }

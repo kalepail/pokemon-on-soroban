@@ -1,27 +1,22 @@
 use crate::constants::*;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Direction {
-    Up,
-    Down,
-    Left,
-    Right,
-}
-
 pub struct Player {
     pub position: (f64, f64),
-    pub direction: Direction,
+    pub direction: (f64, f64),
 }
 
 pub struct Projectile {
     pub position: (f64, f64),
-    pub direction: Direction,
+    pub direction: (f64, f64),
     pub speed: f64,
 }
 
 #[derive(Debug)]
 pub enum Action {
-    Move(Direction),
+    Forward,
+    Backward,
+    TurnLeft,
+    TurnRight,
     Shoot,
     Quit,
 }
@@ -40,7 +35,7 @@ impl GameState {
             world_height: WORLD_HEIGHT,
             player: Player {
                 position: (WORLD_WIDTH / 2.0, WORLD_HEIGHT / 2.0),
-                direction: Direction::Right,
+                direction: (1.0, 0.0),
             },
             projectiles: Vec::new(),
         }
@@ -48,12 +43,8 @@ impl GameState {
 
     pub fn tick(&mut self, dt: f64) {
         for projectile in &mut self.projectiles {
-            match projectile.direction {
-                Direction::Up => projectile.position.1 -= projectile.speed * dt,
-                Direction::Down => projectile.position.1 += projectile.speed * dt,
-                Direction::Left => projectile.position.0 -= projectile.speed * dt,
-                Direction::Right => projectile.position.0 += projectile.speed * dt,
-            }
+            projectile.position.0 += projectile.direction.0 * projectile.speed * dt;
+            projectile.position.1 += projectile.direction.1 * projectile.speed * dt;
         }
         self.projectiles.retain(|p| {
             p.position.0 >= 0.0
@@ -65,16 +56,29 @@ impl GameState {
 
     pub fn apply_action(&mut self, action: &Action, dt: f64) {
         match action {
-            Action::Move(dir) => {
-                self.player.direction = *dir;
-                let (dx, dy) = match dir {
-                    Direction::Up => (0.0, -PLAYER_SPEED * dt),
-                    Direction::Down => (0.0, PLAYER_SPEED * dt),
-                    Direction::Left => (-PLAYER_SPEED * dt, 0.0),
-                    Direction::Right => (PLAYER_SPEED * dt, 0.0),
-                };
-                self.player.position.0 = (self.player.position.0 + dx).clamp(0.0, self.world_width);
-                self.player.position.1 = (self.player.position.1 + dy).clamp(0.0, self.world_height);
+            Action::Forward => {
+                self.player.position.0 = (self.player.position.0 + self.player.direction.0 * PLAYER_SPEED * dt).clamp(0.0, self.world_width);
+                self.player.position.1 = (self.player.position.1 + self.player.direction.1 * PLAYER_SPEED * dt).clamp(0.0, self.world_height);
+            }
+            Action::Backward => {
+                self.player.position.0 = (self.player.position.0 - self.player.direction.0 * PLAYER_SPEED * dt).clamp(0.0, self.world_width);
+                self.player.position.1 = (self.player.position.1 - self.player.direction.1 * PLAYER_SPEED * dt).clamp(0.0, self.world_height);
+            }
+            Action::TurnLeft => {
+                let angle = -TURN_SPEED * dt;
+                let (dx, dy) = self.player.direction;
+                self.player.direction = (
+                    dx * angle.cos() - dy * angle.sin(),
+                    dx * angle.sin() + dy * angle.cos(),
+                );
+            }
+            Action::TurnRight => {
+                let angle = TURN_SPEED * dt;
+                let (dx, dy) = self.player.direction;
+                self.player.direction = (
+                    dx * angle.cos() - dy * angle.sin(),
+                    dx * angle.sin() + dy * angle.cos(),
+                );
             }
             Action::Shoot => {
                 self.projectiles.push(Projectile {

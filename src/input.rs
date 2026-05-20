@@ -1,17 +1,17 @@
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
 use std::time::Duration;
 
-use crate::game::{Action, Direction};
+use crate::game::Action;
 
 pub fn map_key_event(key: &KeyEvent) -> Option<Action> {
     if key.kind != KeyEventKind::Press {
         return None;
     }
     match key.code {
-        KeyCode::Up => Some(Action::Move(Direction::Up)),
-        KeyCode::Down => Some(Action::Move(Direction::Down)),
-        KeyCode::Left => Some(Action::Move(Direction::Left)),
-        KeyCode::Right => Some(Action::Move(Direction::Right)),
+        KeyCode::Up => Some(Action::Forward),
+        KeyCode::Down => Some(Action::Backward),
+        KeyCode::Left => Some(Action::TurnLeft),
+        KeyCode::Right => Some(Action::TurnRight),
         KeyCode::Char(' ') => Some(Action::Shoot),
         KeyCode::Char('q') | KeyCode::Esc => Some(Action::Quit),
         _ => None,
