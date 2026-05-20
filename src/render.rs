@@ -1,31 +1,21 @@
-use std::f64::consts::PI;
-
 use ratatui::Frame;
 use ratatui::style::{Color, Style};
 
 use crate::game::GameState;
 
-fn direction_char(dx: f64, dy: f64) -> char {
-    let angle = dy.atan2(dx);
-    let octant = ((angle + PI) / (PI / 4.0)).floor() as i32 % 8;
-    match octant {
-        0 => '←',
-        1 => '↖',
-        2 => '↑',
-        3 => '↗',
-        4 => '→',
-        5 => '↘',
-        6 => '↓',
-        7 => '↙',
-        _ => '→',
-    }
-}
+const BG_COLOR: Color = Color::Rgb(15, 15, 25);
+const GRID_COLOR: Color = Color::Rgb(25, 25, 40);
+const GRID_ACCENT_COLOR: Color = Color::Rgb(35, 35, 55);
+const BORDER_COLOR: Color = Color::Rgb(60, 60, 80);
+const PLAYER_COLOR: Color = Color::Rgb(80, 220, 100);
+const PLAYER_NOSE_COLOR: Color = Color::Rgb(140, 255, 160);
+const PROJECTILE_COLOR: Color = Color::Rgb(255, 220, 60);
 
 pub struct Viewport {
     pub left: f64,
     pub top: f64,
     pub width: u16,
-    pub height: u16,
+    pub height_pixels: u16,
 }
 
 pub fn compute_viewport(
@@ -33,95 +23,115 @@ pub fn compute_viewport(
     world_width: f64,
     world_height: f64,
     screen_width: u16,
-    screen_height: u16,
+    screen_height_pixels: u16,
 ) -> Viewport {
     let half_w = screen_width as f64 / 2.0;
-    let half_h = screen_height as f64 / 2.0;
+    let half_h = screen_height_pixels as f64 / 2.0;
 
     let left = (player_pos.0 - half_w)
         .max(0.0)
         .min((world_width - screen_width as f64).max(0.0));
     let top = (player_pos.1 - half_h)
         .max(0.0)
-        .min((world_height - screen_height as f64).max(0.0));
+        .min((world_height - screen_height_pixels as f64).max(0.0));
 
     Viewport {
         left,
         top,
         width: screen_width,
-        height: screen_height,
+        height_pixels: screen_height_pixels,
     }
+}
+
+fn world_pixel_color(wx: i64, wy: i64, world_width: f64, world_height: f64) -> Color {
+    let w = world_width as i64;
+    let h = world_height as i64;
+
+    if wx < 0 || wx >= w || wy < 0 || wy >= h {
+        return BG_COLOR;
+    }
+    if wx == 0 || wx == w - 1 || wy == 0 || wy == h - 1 {
+        return BORDER_COLOR;
+    }
+    if wx % 10 == 0 && wy % 10 == 0 {
+        return GRID_ACCENT_COLOR;
+    }
+    if wx % 10 == 0 || wy % 10 == 0 {
+        return GRID_COLOR;
+    }
+    BG_COLOR
 }
 
 pub fn draw(frame: &mut Frame, state: &GameState) {
     let area = frame.area();
+    let pixel_height = area.height * 2;
     let vp = compute_viewport(
         state.player.position,
         state.world_width,
         state.world_height,
         area.width,
-        area.height,
+        pixel_height,
     );
 
-    let buf = frame.buffer_mut();
+    // Build a pixel buffer (width x pixel_height) of colors
+    let w = vp.width as usize;
+    let h = pixel_height as usize;
+    let mut pixels = vec![BG_COLOR; w * h];
 
-    for y in 0..vp.height {
-        for x in 0..vp.width {
-            let world_x = vp.left + x as f64;
-            let world_y = vp.top + y as f64;
-
-            let ch;
-            let style;
-
-            let wx = world_x.floor() as i64;
-            let wy = world_y.floor() as i64;
-
-            if world_x < 0.0
-                || world_x >= state.world_width
-                || world_y < 0.0
-                || world_y >= state.world_height
-            {
-                ch = ' ';
-                style = Style::default();
-            } else if wx == 0
-                || wx == (state.world_width as i64 - 1)
-                || wy == 0
-                || wy == (state.world_height as i64 - 1)
-            {
-                ch = '#';
-                style = Style::default().fg(Color::DarkGray);
-            } else if wx % 5 == 0 && wy % 5 == 0 {
-                ch = '·';
-                style = Style::default().fg(Color::Rgb(40, 40, 40));
-            } else if wx % 5 == 0 || wy % 5 == 0 {
-                ch = '·';
-                style = Style::default().fg(Color::Rgb(25, 25, 25));
-            } else {
-                ch = ' ';
-                style = Style::default();
-            }
-
-            let cell = &mut buf[(area.x + x, area.y + y)];
-            cell.set_char(ch);
-            cell.set_style(style);
+    // Draw world background
+    for py in 0..h {
+        for px in 0..w {
+            let wx = (vp.left + px as f64).floor() as i64;
+            let wy = (vp.top + py as f64).floor() as i64;
+            pixels[py * w + px] = world_pixel_color(wx, wy, state.world_width, state.world_height);
         }
     }
 
+    // Draw projectiles as 1x1 bright dots
     for projectile in &state.projectiles {
         let sx = (projectile.position.0 - vp.left).floor() as i32;
         let sy = (projectile.position.1 - vp.top).floor() as i32;
-        if sx >= 0 && sx < vp.width as i32 && sy >= 0 && sy < vp.height as i32 {
-            let cell = &mut buf[(area.x + sx as u16, area.y + sy as u16)];
-            cell.set_char('*');
-            cell.set_style(Style::default().fg(Color::Yellow));
+        if sx >= 0 && sx < w as i32 && sy >= 0 && sy < h as i32 {
+            pixels[sy as usize * w + sx as usize] = PROJECTILE_COLOR;
         }
     }
 
+    // Draw player as a 3x3 blob with a nose pixel in the facing direction
     let px = (state.player.position.0 - vp.left).floor() as i32;
     let py = (state.player.position.1 - vp.top).floor() as i32;
-    if px >= 0 && px < vp.width as i32 && py >= 0 && py < vp.height as i32 {
-        let cell = &mut buf[(area.x + px as u16, area.y + py as u16)];
-        cell.set_char(direction_char(state.player.direction.0, state.player.direction.1));
-        cell.set_style(Style::default().fg(Color::Green));
+
+    // 3x3 body
+    for dy in -1..=1i32 {
+        for dx in -1..=1i32 {
+            let sx = px + dx;
+            let sy = py + dy;
+            if sx >= 0 && sx < w as i32 && sy >= 0 && sy < h as i32 {
+                pixels[sy as usize * w + sx as usize] = PLAYER_COLOR;
+            }
+        }
+    }
+
+    // Nose: 2 pixels out in facing direction
+    let (ndx, ndy) = state.player.direction;
+    let nose_x = (px as f64 + ndx * 2.0).round() as i32;
+    let nose_y = (py as f64 + ndy * 2.0).round() as i32;
+    if nose_x >= 0 && nose_x < w as i32 && nose_y >= 0 && nose_y < h as i32 {
+        pixels[nose_y as usize * w + nose_x as usize] = PLAYER_NOSE_COLOR;
+    }
+
+    // Render pixel pairs as half-block characters
+    let buf = frame.buffer_mut();
+    for row in 0..area.height {
+        let top_y = (row * 2) as usize;
+        let bot_y = top_y + 1;
+        for col in 0..area.width {
+            let x = col as usize;
+            let top_color = if top_y < h { pixels[top_y * w + x] } else { BG_COLOR };
+            let bot_color = if bot_y < h { pixels[bot_y * w + x] } else { BG_COLOR };
+
+            let cell = &mut buf[(area.x + col, area.y + row)];
+            cell.set_char('▀');
+            cell.set_style(Style::default().fg(top_color).bg(bot_color));
+        }
     }
 }

@@ -15,7 +15,6 @@ use ratatui::Terminal;
 
 use constants::TICK_RATE;
 use game::{Action, GameState};
-use input::poll_actions;
 
 fn main() -> io::Result<()> {
     enable_raw_mode()?;
@@ -45,7 +44,8 @@ fn run_loop(
         let frame_start = Instant::now();
         let dt = tick_duration.as_secs_f64();
 
-        let actions = poll_actions(tick_duration.saturating_sub(frame_start.elapsed()));
+        let keys = input::poll_keys(tick_duration.saturating_sub(frame_start.elapsed()));
+        let actions = input::keys_to_actions(&keys);
 
         for action in &actions {
             if matches!(action, Action::Quit) {
