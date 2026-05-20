@@ -61,4 +61,28 @@ impl GameState {
                 && p.position.1 <= self.world_height
         });
     }
+
+    pub fn apply_action(&mut self, action: &Action, dt: f64) {
+        match action {
+            Action::Move(dir) => {
+                self.player.direction = *dir;
+                let (dx, dy) = match dir {
+                    Direction::Up => (0.0, -PLAYER_SPEED * dt),
+                    Direction::Down => (0.0, PLAYER_SPEED * dt),
+                    Direction::Left => (-PLAYER_SPEED * dt, 0.0),
+                    Direction::Right => (PLAYER_SPEED * dt, 0.0),
+                };
+                self.player.position.0 = (self.player.position.0 + dx).clamp(0.0, self.world_width);
+                self.player.position.1 = (self.player.position.1 + dy).clamp(0.0, self.world_height);
+            }
+            Action::Shoot => {
+                self.projectiles.push(Projectile {
+                    position: self.player.position,
+                    direction: self.player.direction,
+                    speed: PROJECTILE_SPEED,
+                });
+            }
+            Action::Quit => {}
+        }
+    }
 }
