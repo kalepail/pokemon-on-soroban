@@ -6,16 +6,19 @@ use crate::game::Action;
 
 pub struct KeyState {
     pub held: HashSet<KeyCode>,
+    pub just_pressed: HashSet<KeyCode>,
 }
 
 impl KeyState {
     pub fn new() -> Self {
         Self {
             held: HashSet::new(),
+            just_pressed: HashSet::new(),
         }
     }
 
     pub fn update(&mut self, timeout: Duration) {
+        self.just_pressed.clear();
         // Wait for first event up to timeout
         if !event::poll(timeout).unwrap_or(false) {
             return;
@@ -25,7 +28,9 @@ impl KeyState {
             if let Ok(Event::Key(key)) = event::read() {
                 match key.kind {
                     KeyEventKind::Press => {
-                        self.held.insert(key.code);
+                        if self.held.insert(key.code) {
+                            self.just_pressed.insert(key.code);
+                        }
                     }
                     KeyEventKind::Release => {
                         self.held.remove(&key.code);
@@ -54,7 +59,7 @@ impl KeyState {
         if self.held.contains(&KeyCode::Right) {
             actions.push(Action::TurnRight);
         }
-        if self.held.contains(&KeyCode::Char(' ')) {
+        if self.just_pressed.contains(&KeyCode::Char(' ')) {
             actions.push(Action::Shoot);
         }
         actions
