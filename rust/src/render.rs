@@ -262,7 +262,7 @@ pub fn draw(frame: &mut Frame, state: &GameState) {
     }
 
     // Draw bullets as pokeballs with arc
-    let max_ttl = 60.0; // TICK_RATE * 2.0
+    let max_ttl = 30.0; // TICK_RATE * 1.0
     let hittable_fraction = 0.35;
     for bullet in &state.bullets {
         let (bx, by) = state.interpolated_pos(bullet.x, bullet.y, bullet.vx, bullet.vy);
