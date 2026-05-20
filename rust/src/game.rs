@@ -1,6 +1,6 @@
+use crate::protocol::{ANGLE_STEPS, SnapshotBullet, SnapshotPacket, SnapshotPlayer};
 use std::f64::consts::PI;
 use std::time::Instant;
-use crate::protocol::{SnapshotPlayer, SnapshotBullet, SnapshotPacket, ANGLE_STEPS};
 
 const SERVER_TICK_RATE: f64 = 30.0;
 

@@ -73,65 +73,72 @@ pub fn parse_server_packet(data: &[u8]) -> Option<ServerPacket> {
         return None;
     }
     match data[0] {
-        PACKET_HELLO if data.len() >= 12 => {
-            Some(ServerPacket::Hello(HelloPacket {
-                player_id: u16::from_le_bytes([data[2], data[3]]),
-                tick: u32::from_le_bytes([data[4], data[5], data[6], data[7]]),
-                world_w: u16::from_le_bytes([data[8], data[9]]),
-                world_h: u16::from_le_bytes([data[10], data[11]]),
-            }))
-        }
-        PACKET_DEATH if data.len() >= 8 => {
-            Some(ServerPacket::Death(DeathPacket {
-                player_id: u16::from_le_bytes([data[2], data[3]]),
-                killer_id: u16::from_le_bytes([data[4], data[5]]),
-                score: u16::from_le_bytes([data[6], data[7]]),
-            }))
-        }
+        PACKET_HELLO if data.len() >= 12 => Some(ServerPacket::Hello(HelloPacket {
+            player_id: u16::from_le_bytes([data[2], data[3]]),
+            tick: u32::from_le_bytes([data[4], data[5], data[6], data[7]]),
+            world_w: u16::from_le_bytes([data[8], data[9]]),
+            world_h: u16::from_le_bytes([data[10], data[11]]),
+        })),
+        PACKET_DEATH if data.len() >= 8 => Some(ServerPacket::Death(DeathPacket {
+            player_id: u16::from_le_bytes([data[2], data[3]]),
+            killer_id: u16::from_le_bytes([data[4], data[5]]),
+            score: u16::from_le_bytes([data[6], data[7]]),
+        })),
         PACKET_SNAPSHOT if data.len() >= 12 => {
             let mut offset = 2;
-            let tick = u32::from_le_bytes([data[offset], data[offset+1], data[offset+2], data[offset+3]]);
+            let tick = u32::from_le_bytes([
+                data[offset],
+                data[offset + 1],
+                data[offset + 2],
+                data[offset + 3],
+            ]);
             offset += 4;
-            let ack_seq = u16::from_le_bytes([data[offset], data[offset+1]]);
+            let ack_seq = u16::from_le_bytes([data[offset], data[offset + 1]]);
             offset += 2;
-            let self_id = u16::from_le_bytes([data[offset], data[offset+1]]);
+            let self_id = u16::from_le_bytes([data[offset], data[offset + 1]]);
             offset += 2;
-            let player_count = u16::from_le_bytes([data[offset], data[offset+1]]) as usize;
+            let player_count = u16::from_le_bytes([data[offset], data[offset + 1]]) as usize;
             offset += 2;
 
             let mut players = Vec::with_capacity(player_count);
             for _ in 0..player_count {
-                if offset + PLAYER_BYTES > data.len() { break; }
+                if offset + PLAYER_BYTES > data.len() {
+                    break;
+                }
                 players.push(SnapshotPlayer {
-                    id: u16::from_le_bytes([data[offset], data[offset+1]]),
-                    x: u16::from_le_bytes([data[offset+2], data[offset+3]]),
-                    y: u16::from_le_bytes([data[offset+4], data[offset+5]]),
-                    vx: i16::from_le_bytes([data[offset+6], data[offset+7]]),
-                    vy: i16::from_le_bytes([data[offset+8], data[offset+9]]),
-                    angle: u16::from_le_bytes([data[offset+10], data[offset+11]]),
-                    radius: u16::from_le_bytes([data[offset+12], data[offset+13]]),
-                    score: u16::from_le_bytes([data[offset+14], data[offset+15]]),
-                    alive: data[offset+16] == 1,
-                    hue: u16::from_le_bytes([data[offset+17], data[offset+18]]),
+                    id: u16::from_le_bytes([data[offset], data[offset + 1]]),
+                    x: u16::from_le_bytes([data[offset + 2], data[offset + 3]]),
+                    y: u16::from_le_bytes([data[offset + 4], data[offset + 5]]),
+                    vx: i16::from_le_bytes([data[offset + 6], data[offset + 7]]),
+                    vy: i16::from_le_bytes([data[offset + 8], data[offset + 9]]),
+                    angle: u16::from_le_bytes([data[offset + 10], data[offset + 11]]),
+                    radius: u16::from_le_bytes([data[offset + 12], data[offset + 13]]),
+                    score: u16::from_le_bytes([data[offset + 14], data[offset + 15]]),
+                    alive: data[offset + 16] == 1,
+                    hue: u16::from_le_bytes([data[offset + 17], data[offset + 18]]),
                 });
                 offset += PLAYER_BYTES;
             }
 
-            if offset + 2 > data.len() { return None; }
-            let bullet_count = u16::from_le_bytes([data[offset], data[offset+1]]) as usize;
+            if offset + 2 > data.len() {
+                return None;
+            }
+            let bullet_count = u16::from_le_bytes([data[offset], data[offset + 1]]) as usize;
             offset += 2;
 
             let mut bullets = Vec::with_capacity(bullet_count);
             for _ in 0..bullet_count {
-                if offset + BULLET_BYTES > data.len() { break; }
+                if offset + BULLET_BYTES > data.len() {
+                    break;
+                }
                 bullets.push(SnapshotBullet {
-                    id: u16::from_le_bytes([data[offset], data[offset+1]]),
-                    owner_id: u16::from_le_bytes([data[offset+2], data[offset+3]]),
-                    x: u16::from_le_bytes([data[offset+4], data[offset+5]]),
-                    y: u16::from_le_bytes([data[offset+6], data[offset+7]]),
-                    vx: i16::from_le_bytes([data[offset+8], data[offset+9]]),
-                    vy: i16::from_le_bytes([data[offset+10], data[offset+11]]),
-                    ttl: data[offset+12],
+                    id: u16::from_le_bytes([data[offset], data[offset + 1]]),
+                    owner_id: u16::from_le_bytes([data[offset + 2], data[offset + 3]]),
+                    x: u16::from_le_bytes([data[offset + 4], data[offset + 5]]),
+                    y: u16::from_le_bytes([data[offset + 6], data[offset + 7]]),
+                    vx: i16::from_le_bytes([data[offset + 8], data[offset + 9]]),
+                    vy: i16::from_le_bytes([data[offset + 10], data[offset + 11]]),
+                    ttl: data[offset + 12],
                 });
                 offset += BULLET_BYTES;
             }

@@ -26,6 +26,8 @@ const MAX_SPEED = 1520;
 const BULLET_SPEED = 2150;
 const BULLET_TTL = 1.4;
 const MAX_ACTIVE_BULLETS = 10;
+const POKE_BALL_RADIUS = 26;
+const POKE_BALL_SPAWN_GAP = 6;
 const INPUT_RATE = 30;
 const INPUT_DT = 1 / INPUT_RATE;
 const MAX_PENDING_INPUTS = 90;
@@ -633,8 +635,8 @@ function spawnPredictedBullet() {
   predictedBullets.push({
     id: nextPredictedBulletId--,
     ownerId: selfId,
-    x: wrap(self.x + Math.cos(radians) * (self.radius + 18), WORLD.w),
-    y: wrap(self.y + Math.sin(radians) * (self.radius + 18), WORLD.h),
+    x: wrap(self.x + Math.cos(radians) * (self.radius + POKE_BALL_RADIUS + POKE_BALL_SPAWN_GAP), WORLD.w),
+    y: wrap(self.y + Math.sin(radians) * (self.radius + POKE_BALL_RADIUS + POKE_BALL_SPAWN_GAP), WORLD.h),
     vx: self.vx + Math.cos(radians) * BULLET_SPEED,
     vy: self.vy + Math.sin(radians) * BULLET_SPEED,
     ttl: BULLET_TTL,
@@ -911,7 +913,7 @@ function drawBullet(bullet, dt) {
   const to = toScreen(bullet.x + bullet.vx * dt * 0.35, bullet.y + bullet.vy * dt * 0.35);
   if (!isNearScreen(to.x, to.y, 80)) return;
   const speed = Math.max(1, Math.hypot(bullet.vx, bullet.vy));
-  const trailLength = clamp(speed * camera.zoom * 0.045, 14, 42) * devicePixelRatio;
+  const trailLength = clamp(speed * camera.zoom * 0.052, 18, 54) * devicePixelRatio;
   const from = {
     x: to.x - (bullet.vx / speed) * trailLength,
     y: to.y - (bullet.vy / speed) * trailLength,
@@ -925,14 +927,14 @@ function drawBullet(bullet, dt) {
     grad.addColorStop(1, "rgba(255,255,255,0.95)");
     ctx.strokeStyle = grad;
   }
-  ctx.lineWidth = Math.max(2, 3 * visualScale(0.34));
+  ctx.lineWidth = Math.max(3, 4 * visualScale(0.34));
   ctx.lineCap = "round";
   ctx.beginPath();
   ctx.moveTo(from.x, from.y);
   ctx.lineTo(to.x, to.y);
   ctx.stroke();
 
-  const ballR = Math.max(5, 8 * visualScale(0.34));
+  const ballR = Math.max(10 * devicePixelRatio, POKE_BALL_RADIUS * visualScale(0.38));
   ctx.save();
   ctx.translate(to.x, to.y);
   ctx.rotate(Math.atan2(bullet.vy, bullet.vx));
@@ -1086,9 +1088,9 @@ function spawnMuzzle(owner) {
   if (!SHOW_EFFECTS) return;
   if (perf.quality === 0 || muzzleFlashes.length > 40) return;
   const radians = (owner.angle / 1024) * Math.PI * 2;
-  const x = wrap(owner.x + Math.cos(radians) * (owner.radius + 20), WORLD.w);
-  const y = wrap(owner.y + Math.sin(radians) * (owner.radius + 20), WORLD.h);
-  muzzleFlashes.push({ x, y, life: 0.12, max: 0.12, size: 42 });
+  const x = wrap(owner.x + Math.cos(radians) * (owner.radius + POKE_BALL_RADIUS + POKE_BALL_SPAWN_GAP), WORLD.w);
+  const y = wrap(owner.y + Math.sin(radians) * (owner.radius + POKE_BALL_RADIUS + POKE_BALL_SPAWN_GAP), WORLD.h);
+  muzzleFlashes.push({ x, y, life: 0.12, max: 0.12, size: 58 });
 }
 
 function spawnExplosion(x, y, hue, strong) {

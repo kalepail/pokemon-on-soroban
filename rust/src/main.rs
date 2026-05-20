@@ -7,24 +7,26 @@ mod render;
 use std::io;
 use std::time::{Duration, Instant};
 
-use crossterm::execute;
 use crossterm::event::{
-    KeyboardEnhancementFlags, PushKeyboardEnhancementFlags, PopKeyboardEnhancementFlags,
+    KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
 };
+use crossterm::execute;
 use crossterm::terminal::{
-    disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
+    EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
 };
-use ratatui::backend::CrosstermBackend;
-use ratatui::Terminal;
-use tungstenite::{connect, Message};
 use game::GameState;
 use input::KeyState;
-use protocol::{parse_server_packet, build_input_packet, ServerPacket};
+use protocol::{ServerPacket, build_input_packet, parse_server_packet};
+use ratatui::Terminal;
+use ratatui::backend::CrosstermBackend;
+use tungstenite::{Message, connect};
 
 const SERVER_URL: &str = "ws://localhost:8787/ws";
 
 fn main() -> io::Result<()> {
-    let url_str = std::env::args().nth(1).unwrap_or_else(|| SERVER_URL.to_string());
+    let url_str = std::env::args()
+        .nth(1)
+        .unwrap_or_else(|| SERVER_URL.to_string());
     let sid = format!("tui-{}", std::process::id());
     let full_url = if url_str.contains('?') {
         format!("{}&sid={}", url_str, sid)
@@ -120,8 +122,9 @@ fn run_loop(
                     }
                 }
                 Ok(_) => {} // text messages, pings, etc
-                Err(tungstenite::Error::Io(ref e))
-                    if e.kind() == io::ErrorKind::WouldBlock => break,
+                Err(tungstenite::Error::Io(ref e)) if e.kind() == io::ErrorKind::WouldBlock => {
+                    break;
+                }
                 Err(_) => break,
             }
         }

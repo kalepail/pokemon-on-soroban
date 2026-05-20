@@ -1,0 +1,22 @@
+/* Best-guess reconstruction of Icons.svg color classes.
+   Real CSS was not exported. These mappings were derived by matching
+   the figma render against class usage frequency. Verify visually. */
+
+/* strokes (line / polyline) */
+.st0  { fill: transparent; stroke: none; }
+.st2, .st3, .st4, .st5, .st6, .st13, .st14, .st16, .st17, .st18, .st26, .st28, .st31 {
+  fill: none; stroke: #000; stroke-width: 1.2px; stroke-linecap: round;
+}
+.st12 { fill: none; stroke: #000; stroke-width: 1.2px; stroke-linejoin: round; }
+
+/* fills — best guesses */
+.st35 { fill: #000; }
+.st23 { fill: #FDDA24; stroke: #000; stroke-width: 1px; }
+.st29 { fill: #B7ACE8; stroke: #000; stroke-width: 1px; }
+.st30 { fill: #FFF;    stroke: #000; stroke-width: 1px; }
+.st27 { fill: #FFF;    stroke: #000; stroke-width: 1px; }
+.st33 { fill: #FDDA24; stroke: #000; stroke-width: 1px; }
+.st34 { fill: #B7ACE8; stroke: #000; stroke-width: 1px; }
+.st8  { fill: none;    stroke: #000; stroke-width: 1px; }
+.st19 { fill: #FDDA24; }
+.st47 { fill: #FDDA24; }

@@ -120,39 +120,76 @@ fn hsl_to_rgb(h: f64, s: f64, l: f64) -> (u8, u8, u8) {
 const BASE_RADIUS: f64 = 34.0;
 
 fn draw_player_sprite(
-    pixels: &mut [Color], w: usize, h: usize,
-    px: i32, py: i32, angle: u16, alive: bool, hue: u16, radius: u16,
+    pixels: &mut [Color],
+    w: usize,
+    h: usize,
+    px: i32,
+    py: i32,
+    angle: u16,
+    alive: bool,
+    hue: u16,
+    radius: u16,
 ) {
     let (ndx, ndy) = angle_to_direction(angle);
     let cos_a = ndx;
     let sin_a = ndy;
     let scale = radius as f64 / BASE_RADIUS;
 
-    let shirt = if alive { hue_to_shirt_color(hue) } else { DEAD_COLOR };
-    let skin = if alive { SKIN_COLOR } else { Color::Rgb(140, 140, 140) };
-    let hat = if alive { HAT_COLOR } else { Color::Rgb(100, 100, 100) };
+    let shirt = if alive {
+        hue_to_shirt_color(hue)
+    } else {
+        DEAD_COLOR
+    };
+    let skin = if alive {
+        SKIN_COLOR
+    } else {
+        Color::Rgb(140, 140, 140)
+    };
+    let hat = if alive {
+        HAT_COLOR
+    } else {
+        Color::Rgb(100, 100, 100)
+    };
 
     let sprite: &[(f64, f64, Color)] = &[
         // Hat
-        (0.0, -4.0, hat), (1.0, -4.0, hat), (2.0, -4.0, hat),
-        (-1.0, -3.0, hat), (0.0, -3.0, hat), (1.0, -3.0, hat), (2.0, -3.0, hat),
+        (0.0, -4.0, hat),
+        (1.0, -4.0, hat),
+        (2.0, -4.0, hat),
+        (-1.0, -3.0, hat),
+        (0.0, -3.0, hat),
+        (1.0, -3.0, hat),
+        (2.0, -3.0, hat),
         // Head
-        (-1.0, -2.0, skin), (0.0, -2.0, skin), (1.0, -2.0, skin),
-        (-1.0, -1.0, skin), (0.0, -1.0, skin), (1.0, -1.0, skin),
+        (-1.0, -2.0, skin),
+        (0.0, -2.0, skin),
+        (1.0, -2.0, skin),
+        (-1.0, -1.0, skin),
+        (0.0, -1.0, skin),
+        (1.0, -1.0, skin),
         // Eye
         (1.0, -2.0, HAIR_COLOR),
         // Body
-        (-1.0, 0.0, shirt), (0.0, 0.0, shirt), (1.0, 0.0, shirt),
-        (-1.0, 1.0, shirt), (0.0, 1.0, shirt), (1.0, 1.0, shirt),
+        (-1.0, 0.0, shirt),
+        (0.0, 0.0, shirt),
+        (1.0, 0.0, shirt),
+        (-1.0, 1.0, shirt),
+        (0.0, 1.0, shirt),
+        (1.0, 1.0, shirt),
         (0.0, 2.0, shirt),
         // Arms
-        (-2.0, 0.0, skin), (2.0, 0.0, skin),
-        (-2.0, 1.0, skin), (2.0, 1.0, skin),
+        (-2.0, 0.0, skin),
+        (2.0, 0.0, skin),
+        (-2.0, 1.0, skin),
+        (2.0, 1.0, skin),
         // Legs
-        (-1.0, 2.0, PANTS_COLOR), (1.0, 2.0, PANTS_COLOR),
-        (-1.0, 3.0, PANTS_COLOR), (1.0, 3.0, PANTS_COLOR),
+        (-1.0, 2.0, PANTS_COLOR),
+        (1.0, 2.0, PANTS_COLOR),
+        (-1.0, 3.0, PANTS_COLOR),
+        (1.0, 3.0, PANTS_COLOR),
         // Shoes
-        (-1.0, 4.0, SHOE_COLOR), (1.0, 4.0, SHOE_COLOR),
+        (-1.0, 4.0, SHOE_COLOR),
+        (1.0, 4.0, SHOE_COLOR),
     ];
 
     for &(sdx, sdy, color) in sprite {
@@ -179,16 +216,24 @@ fn draw_player_sprite(
 
 fn torus_delta(a: f64, b: f64, size: f64) -> f64 {
     let mut d = a - b;
-    if d > size / 2.0 { d -= size; }
-    if d < -size / 2.0 { d += size; }
+    if d > size / 2.0 {
+        d -= size;
+    }
+    if d < -size / 2.0 {
+        d += size;
+    }
     d
 }
 
 fn world_to_screen(
-    obj_x: f64, obj_y: f64,
-    cam_x: f64, cam_y: f64,
-    world_w: f64, world_h: f64,
-    center_px: f64, center_py: f64,
+    obj_x: f64,
+    obj_y: f64,
+    cam_x: f64,
+    cam_y: f64,
+    world_w: f64,
+    world_h: f64,
+    center_px: f64,
+    center_py: f64,
 ) -> (i32, i32) {
     let dx = torus_delta(obj_x, cam_x, world_w);
     let dy = torus_delta(obj_y, cam_y, world_h);
@@ -205,7 +250,10 @@ pub fn draw(frame: &mut Frame, state: &GameState) {
     let (cam_x, cam_y) = if let Some(me) = state.self_player() {
         state.interpolated_pos(me.x, me.y, me.vx, me.vy)
     } else {
-        (state.world_width as f64 / 2.0, state.world_height as f64 / 2.0)
+        (
+            state.world_width as f64 / 2.0,
+            state.world_height as f64 / 2.0,
+        )
     };
 
     let w = pixel_w;
@@ -225,8 +273,10 @@ pub fn draw(frame: &mut Frame, state: &GameState) {
             let wrapped_x = ((wx % ww) + ww) % ww;
             let wrapped_y = ((wy % wh) + wh) % wh;
             pixels[py * w + px] = world_pixel_color(
-                wrapped_x.floor() as i64, wrapped_y.floor() as i64,
-                ww as i64, wh as i64,
+                wrapped_x.floor() as i64,
+                wrapped_y.floor() as i64,
+                ww as i64,
+                wh as i64,
             );
         }
     }
@@ -234,9 +284,7 @@ pub fn draw(frame: &mut Frame, state: &GameState) {
     // Draw bullets as pokeballs
     for bullet in &state.bullets {
         let (bx, by) = state.interpolated_pos(bullet.x, bullet.y, bullet.vx, bullet.vy);
-        let (sx, sy) = world_to_screen(
-            bx, by, cam_x, cam_y, ww, wh, center_px, center_py,
-        );
+        let (sx, sy) = world_to_screen(bx, by, cam_x, cam_y, ww, wh, center_px, center_py);
 
         // Shadow on ground
         set_pixel(&mut pixels, w, h, sx, sy, SHADOW_COLOR);
@@ -248,27 +296,38 @@ pub fn draw(frame: &mut Frame, state: &GameState) {
         let arc_offset = (-4.0 * 6.0 * progress * (1.0 - progress)).floor() as i32;
         let arc_y = sy + arc_offset;
 
-        for dx in 0..3i32 {
-            set_pixel(&mut pixels, w, h, sx - 1 + dx, arc_y - 1, POKEBALL_RED);
-            set_pixel(&mut pixels, w, h, sx - 1 + dx, arc_y, POKEBALL_BAND);
-            set_pixel(&mut pixels, w, h, sx - 1 + dx, arc_y + 1, POKEBALL_WHITE);
+        for dx in -2..=2i32 {
+            set_pixel(&mut pixels, w, h, sx + dx, arc_y - 2, POKEBALL_RED);
+            set_pixel(&mut pixels, w, h, sx + dx, arc_y - 1, POKEBALL_RED);
+            set_pixel(&mut pixels, w, h, sx + dx, arc_y, POKEBALL_BAND);
+            set_pixel(&mut pixels, w, h, sx + dx, arc_y + 1, POKEBALL_WHITE);
+            set_pixel(&mut pixels, w, h, sx + dx, arc_y + 2, POKEBALL_WHITE);
         }
+        set_pixel(&mut pixels, w, h, sx, arc_y, POKEBALL_WHITE);
+        set_pixel(&mut pixels, w, h, sx + 1, arc_y, POKEBALL_WHITE);
+        set_pixel(&mut pixels, w, h, sx, arc_y - 1, POKEBALL_BAND);
+        set_pixel(&mut pixels, w, h, sx, arc_y + 1, POKEBALL_BAND);
     }
 
     // Draw players
     for player in &state.players {
         let (px, py) = state.interpolated_pos(player.x, player.y, player.vx, player.vy);
-        let (sx, sy) = world_to_screen(
-            px, py, cam_x, cam_y, ww, wh, center_px, center_py,
-        );
+        let (sx, sy) = world_to_screen(px, py, cam_x, cam_y, ww, wh, center_px, center_py);
 
         if sx < -20 || sx >= w as i32 + 20 || sy < -20 || sy >= h as i32 + 20 {
             continue;
         }
 
         draw_player_sprite(
-            &mut pixels, w, h,
-            sx, sy, player.angle, player.alive, player.hue, player.radius,
+            &mut pixels,
+            w,
+            h,
+            sx,
+            sy,
+            player.angle,
+            player.alive,
+            player.hue,
+            player.radius,
         );
     }
 
@@ -279,8 +338,16 @@ pub fn draw(frame: &mut Frame, state: &GameState) {
         let bot_y = top_y + 1;
         for col in 0..area.width {
             let x = col as usize;
-            let top_color = if top_y < h { pixels[top_y * w + x] } else { OUTSIDE_COLOR };
-            let bot_color = if bot_y < h { pixels[bot_y * w + x] } else { OUTSIDE_COLOR };
+            let top_color = if top_y < h {
+                pixels[top_y * w + x]
+            } else {
+                OUTSIDE_COLOR
+            };
+            let bot_color = if bot_y < h {
+                pixels[bot_y * w + x]
+            } else {
+                OUTSIDE_COLOR
+            };
 
             let cell = &mut buf[(area.x + col, area.y + row)];
             cell.set_char('▀');

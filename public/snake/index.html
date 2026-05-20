@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Stellarmon — Game Boy prototype</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- Auto-scale stage to fit viewport -->
+  <script>
+    function scaleStage() {
+      const stage = document.querySelector(".stage");
+      if (!stage) return;
+      const sw = stage.offsetWidth;
+      const sh = stage.offsetHeight;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const s = Math.min(vw / sw, vh / sh) * 0.96;
+      stage.style.transform = `scale(${s})`;
+    }
+    window.addEventListener("resize", scaleStage);
+    new MutationObserver(scaleStage).observe(document.getElementById("root"), { childList: true, subtree: true });
+    setTimeout(scaleStage, 100);
+  </script>
+
+  <!-- React 18 -->
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <!-- Game scripts -->
+  <script src="creatures.js"></script>
+  <script src="audio.js"></script>
+  <script type="text/babel" src="icons.jsx"></script>
+  <script type="text/babel" src="sprites.jsx"></script>
+  <script type="text/babel" src="tweaks-panel.jsx"></script>
+  <script type="text/babel" src="app.jsx"></script>
+
+  <script type="text/babel">
+    function Root() {
+      return (
+        <div className="stage">
+          <window.App />
+        </div>
+      );
+    }
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<Root />);
+  </script>
+</body>
+</html>

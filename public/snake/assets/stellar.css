@@ -1,0 +1,209 @@
+/* =============================================================
+   Stellar / SDF — Colors & Type
+   Derived from the 2026 Brand Guidelines PDF + Figma source.
+   ============================================================= */
+
+/* ----- Fonts ------------------------------------------------- */
+@font-face {
+  font-family: "Inter";
+  src: url("./fonts/Inter-Variable.ttf") format("truetype-variations");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Lora";
+  src: url("./fonts/Lora-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Lora";
+  src: url("./fonts/Lora-Italic.ttf") format("truetype");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Lora";
+  src: url("./fonts/Lora-MediumItalic.ttf") format("truetype");
+  font-weight: 500;
+  font-style: italic;
+  font-display: swap;
+}
+
+:root {
+  /* ----- Brand colors (from PDF) --------------------------- */
+
+  /* Primary */
+  --stellar-yellow:  #FDDA24;   /* Pantone 115 C   — signature color */
+  --stellar-black:   #0F0F0F;   /* Process Black C — near-pure black */
+  --stellar-white:   #FFFFFF;
+
+  /* Secondary / neutral */
+  --off-white:       #F6F7F8;   /* near-white background */
+  --stone:           #D6D2C4;   /* Pantone 7527 C — warm neutral */
+
+  /* Secondary / accent */
+  --lilac:           #B7ACE8;   /* Pantone 2645 C — soft purple (heavy use) */
+  --teal:            #00A7B5;   /* Pantone 7710 C — cyan/teal */
+  --navy:            #002E5D;   /* Pantone 648  C — deep blue */
+
+  /* Tints (derived, for surfaces, borders, hovers) */
+  --yellow-50:   #FFF8CC;
+  --yellow-100:  #FEEA7A;
+  --yellow-500:  #FDDA24;       /* = --stellar-yellow */
+  --yellow-600:  #E6C200;
+  --yellow-700:  #B89A00;
+
+  --lilac-50:    #F1EEFA;
+  --lilac-100:   #E0DAF4;
+  --lilac-500:   #B7ACE8;       /* = --lilac */
+  --lilac-700:   #8575C9;
+
+  --teal-50:     #D9F2F4;
+  --teal-500:    #00A7B5;
+  --teal-700:    #00707A;
+
+  --navy-50:     #D9E0EA;
+  --navy-500:    #002E5D;
+  --navy-900:    #001833;
+
+  /* Neutrals (derived scale) */
+  --ink-0:   #FFFFFF;
+  --ink-50:  #F6F7F8;
+  --ink-100: #ECEDEE;
+  --ink-200: #D9DBDD;
+  --ink-300: #B7BABD;
+  --ink-400: #8E9194;
+  --ink-500: #5F6164;
+  --ink-600: #3A3B3D;
+  --ink-700: #1F2022;
+  --ink-900: #0F0F0F;
+
+  /* ----- Semantic tokens (light theme) --------------------- */
+  --bg:           var(--stellar-white);
+  --bg-elevated:  var(--off-white);
+  --bg-muted:     var(--ink-100);
+  --bg-accent:    var(--stellar-yellow);
+  --bg-inverted:  var(--stellar-black);
+
+  --fg:           var(--stellar-black);      /* primary text */
+  --fg-muted:     var(--ink-500);            /* secondary text */
+  --fg-subtle:    var(--ink-400);            /* tertiary / meta */
+  --fg-inverted:  var(--stellar-white);
+  --fg-on-accent: var(--stellar-black);      /* text on yellow */
+
+  --border:       var(--ink-200);
+  --border-strong:var(--stellar-black);      /* the brand uses pure-black 1px strokes */
+
+  --focus-ring:   var(--navy);
+  --link:         var(--navy);
+  --link-hover:   var(--stellar-black);
+
+  /* ----- Typography families ------------------------------- */
+  --font-serif:  "Lora", Georgia, "Times New Roman", serif;   /* headlines + editorial */
+  --font-sans:   "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-mono:   ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  /* ----- Type scale (semantic) ----------------------------- */
+  /* The brand pairs Lora (serif, for longer headlines + subheads + editorial body)
+     with Inter (sans, for captions, body, detailed uses). */
+  --font-display:  600 clamp(56px, 6vw, 96px)/1.02 var(--font-serif);
+  --font-h1:       500 clamp(40px, 4.4vw, 64px)/1.08 var(--font-serif);
+  --font-h2:       500 clamp(32px, 3.4vw, 48px)/1.12 var(--font-serif);
+  --font-h3:       500 clamp(24px, 2.4vw, 32px)/1.2  var(--font-serif);
+  --font-subhead:  400 italic 22px/1.35 var(--font-serif);
+  --font-lede:     400 20px/1.5 var(--font-sans);
+  --font-body:     400 16px/1.6 var(--font-sans);
+  --font-body-sm:  400 14px/1.55 var(--font-sans);
+  --font-caption:  500 12px/1.4 var(--font-sans);
+  --font-eyebrow:  600 12px/1.2 var(--font-sans); /* uppercase, tracked */
+  --font-code:     400 14px/1.55 var(--font-mono);
+
+  /* ----- Spacing + radius + shadow ------------------------- */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  24px;
+  --space-6:  32px;
+  --space-7:  48px;
+  --space-8:  64px;
+  --space-9:  96px;
+  --space-10: 128px;
+
+  --radius-0: 0px;
+  --radius-1: 4px;
+  --radius-2: 8px;
+  --radius-3: 16px;
+  --radius-pill: 999px;
+
+  /* Shadows are deliberately spare. The brand prefers 1px black strokes
+     and flat color blocks; reserve shadows for elevated popovers. */
+  --shadow-0: none;
+  --shadow-1: 0 1px 2px rgba(15, 15, 15, 0.06);
+  --shadow-2: 0 6px 20px -6px rgba(15, 15, 15, 0.18);
+  --shadow-3: 0 24px 48px -16px rgba(15, 15, 15, 0.24);
+
+  /* Signature "stroke" — a flat 1px pure-black outline appears on all
+     illustration elements. Use this for cards + media that need to
+     feel on-brand. */
+  --stroke: 1px solid var(--stellar-black);
+
+  /* Transitions — the brand is quiet; no bounces */
+  --ease:        cubic-bezier(0.22, 0.61, 0.36, 1);   /* gentle ease-out */
+  --dur-fast:    120ms;
+  --dur-base:    180ms;
+  --dur-slow:    280ms;
+}
+
+/* ----- Dark / inverted surface ------------------------------ */
+/* Apply .on-dark to a block to flip semantics. The brand uses pure
+   black backgrounds with yellow + lilac accents frequently. */
+.on-dark {
+  --bg:          var(--stellar-black);
+  --bg-elevated: #1A1A1A;
+  --bg-muted:    #242424;
+  --bg-inverted: var(--stellar-white);
+  --fg:          var(--stellar-white);
+  --fg-muted:    #B7BABD;
+  --fg-subtle:   #8E9194;
+  --fg-inverted: var(--stellar-black);
+  --border:      #2A2A2A;
+  --border-strong: var(--stellar-white);
+  --link:        var(--stellar-yellow);
+  --link-hover:  var(--stellar-white);
+  color: var(--fg);
+  background: var(--bg);
+}
+
+/* ----- Element defaults ------------------------------------- */
+html { color: var(--fg); background: var(--bg); }
+body {
+  margin: 0;
+  font: var(--font-body);
+  color: var(--fg);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1, .h1 { font: var(--font-h1); margin: 0; letter-spacing: -0.01em; }
+h2, .h2 { font: var(--font-h2); margin: 0; letter-spacing: -0.005em; }
+h3, .h3 { font: var(--font-h3); margin: 0; }
+.display { font: var(--font-display); letter-spacing: -0.02em; }
+.subhead { font: var(--font-subhead); color: var(--fg-muted); }
+.lede    { font: var(--font-lede);  color: var(--fg-muted); }
+.eyebrow {
+  font: var(--font-eyebrow);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--fg-muted);
+}
+p        { font: var(--font-body); margin: 0 0 1em; text-wrap: pretty; }
+small    { font: var(--font-body-sm); color: var(--fg-muted); }
+code, pre { font: var(--font-code); }
+a        { color: var(--link); text-decoration: underline; text-underline-offset: 2px; }
+a:hover  { color: var(--link-hover); }

@@ -148,6 +148,11 @@ export class Arena extends DurableObject<Env> {
     this.pruneDisconnectedPlayers();
     this.updateBots();
 
+    const previousPlayerPositions = new Map<number, { x: number; y: number }>();
+    for (const player of this.players.values()) {
+      previousPlayerPositions.set(player.id, { x: player.x, y: player.y });
+    }
+
     const bulletCounts = this.countBulletsByOwner();
     for (const player of this.players.values()) {
       const bullet = stepPlayer(player, bulletCounts.get(player.id) ?? 0);
@@ -164,7 +169,8 @@ export class Arena extends DurableObject<Env> {
       const bulletAlive = stepBullet(bullet);
       let didHit = false;
       for (const player of this.players.values()) {
-        if (!hitTest(bullet, player, prevX, prevY)) continue;
+        const previousPlayer = previousPlayerPositions.get(player.id);
+        if (!hitTest(bullet, player, prevX, prevY, previousPlayer?.x, previousPlayer?.y)) continue;
         const deadId = player.id;
         const deadScore = player.score;
         awardKill(this.players.get(bullet.ownerId));

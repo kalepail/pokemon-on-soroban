@@ -291,12 +291,20 @@ body {
   transform: translateY(1px);
 }
 
-.pocket-arena-link {
+.game-links {
   position: absolute;
   bottom: 1rem;
   left: 50%;
   transform: translateX(-50%);
   z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.game-links a {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
@@ -315,7 +323,7 @@ body {
   box-shadow: 0 10px 24px rgba(29, 67, 91, 0.18);
 }
 
-.pocket-arena-link:hover {
+.game-links a:hover {
   border-color: #ee1515;
   color: #ee1515;
   background: #fff8d5;
@@ -356,7 +364,7 @@ body {
     display: block;
   }
 
-  .pocket-arena-link {
+  .game-links {
     bottom: calc(8rem + env(safe-area-inset-bottom));
   }
 }

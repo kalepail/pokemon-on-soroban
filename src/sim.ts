@@ -15,7 +15,9 @@ const BULLET_SPEED = 2150;
 const BULLET_TTL = Math.round(TICK_RATE * 1.4);
 const FIRE_COOLDOWN = 5;
 export const MAX_ACTIVE_BULLETS = 10;
+export const POKE_BALL_RADIUS = 26;
 const BASE_RADIUS = 34;
+const POKE_BALL_SPAWN_GAP = 6;
 
 const cosTable = new Int16Array(ANGLE_STEPS);
 const sinTable = new Int16Array(ANGLE_STEPS);
@@ -131,8 +133,8 @@ export function stepPlayer(player: Player, activeBulletCount = 0): Bullet | null
     return {
       id: 0,
       ownerId: player.id,
-      x: wrap(player.x + Math.trunc((cosTable[player.angle] * (player.radius + 18)) / DIR_SCALE), WORLD_W),
-      y: wrap(player.y + Math.trunc((sinTable[player.angle] * (player.radius + 18)) / DIR_SCALE), WORLD_H),
+      x: wrap(player.x + Math.trunc((cosTable[player.angle] * (player.radius + POKE_BALL_RADIUS + POKE_BALL_SPAWN_GAP)) / DIR_SCALE), WORLD_W),
+      y: wrap(player.y + Math.trunc((sinTable[player.angle] * (player.radius + POKE_BALL_RADIUS + POKE_BALL_SPAWN_GAP)) / DIR_SCALE), WORLD_H),
       vx: player.vx + Math.trunc((cosTable[player.angle] * BULLET_SPEED) / DIR_SCALE),
       vy: player.vy + Math.trunc((sinTable[player.angle] * BULLET_SPEED) / DIR_SCALE),
       ttl: BULLET_TTL,
@@ -149,13 +151,20 @@ export function stepBullet(bullet: Bullet): boolean {
   return bullet.ttl > 0;
 }
 
-export function hitTest(bullet: Bullet, player: Player, prevX = bullet.x, prevY = bullet.y): boolean {
+export function hitTest(
+  bullet: Bullet,
+  player: Player,
+  prevX = bullet.x,
+  prevY = bullet.y,
+  prevPlayerX = player.x,
+  prevPlayerY = player.y,
+): boolean {
   if (!player.alive || player.id === bullet.ownerId) return false;
-  const ax = torusDelta(prevX, player.x, WORLD_W);
-  const ay = torusDelta(prevY, player.y, WORLD_H);
-  const bx = ax + torusDelta(bullet.x, prevX, WORLD_W);
-  const by = ay + torusDelta(bullet.y, prevY, WORLD_H);
-  const radius = player.radius + 8;
+  const ax = torusDelta(prevX, prevPlayerX, WORLD_W);
+  const ay = torusDelta(prevY, prevPlayerY, WORLD_H);
+  const bx = ax + torusDelta(bullet.x, prevX, WORLD_W) - torusDelta(player.x, prevPlayerX, WORLD_W);
+  const by = ay + torusDelta(bullet.y, prevY, WORLD_H) - torusDelta(player.y, prevPlayerY, WORLD_H);
+  const radius = player.radius + POKE_BALL_RADIUS;
   return segmentIntersectsCircle(ax, ay, bx, by, radius);
 }
 
