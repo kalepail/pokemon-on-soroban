@@ -12,11 +12,40 @@ a Rust terminal client that speaks the same binary arena protocol, and a
 detailed Soroban design corpus for turning the prototype mechanics into
 deterministic on-chain state transitions.
 
+The current repo is deliberately honest about the boundary between what is
+implemented and what is specified. The playable clients, Worker, Durable Object,
+binary protocol, bots, and Rust terminal client are implemented. The Soroban
+contract layer is captured as implementation-ready architecture in
+`docs/research/`: storage shape, entrypoints, deterministic battle math,
+randomness strategy, and transaction boundaries. That split is the point of the
+submission: prove the game can be fun first, then show exactly which state
+transitions belong on-chain and how they can fit Soroban's deterministic,
+metered execution model.
+
 The project is intentionally broader than a normal hackathon demo because the
 problem is broader than a normal dapp. A real on-chain game needs a fun client, a
 clear simulation model, adversarial-state design, deterministic battle math,
 bounded transactions, and a plan for what belongs on-chain versus off-chain.
 This repository covers those layers end to end.
+
+## Judge Summary
+
+If you only have a few minutes, this is the project in one pass:
+
+1. Run `npm install && npm run dev`.
+2. Open `http://localhost:8787/` for the authoritative multiplayer arena.
+3. Open `http://localhost:8787/pokemon/` for the classic Pokemon-style
+   overworld, pokeball throws, captures, and battles.
+4. Open `http://localhost:8787/snake/` for the Game Boy-style Stellar creature
+   collector with routes, battles, Stellardex, lives, and chiptune audio.
+5. Open `http://localhost:8787/?bots=20` to see the Durable Object simulation
+   populated by server-side bots.
+6. Skim `JUDGE.md` for the award argument and `docs/research/` for the Soroban
+   implementation path.
+
+The short argument: most blockchain game demos prove either a transaction, a
+screen, or an idea. This repo proves a playable game direction, an authoritative
+real-time architecture, multiple clients, and a Soroban state-transition plan.
 
 ## What We Built
 
@@ -193,6 +222,23 @@ You can pass another WebSocket URL as the first argument.
    `docs/research/battle-mechanics.md` to see how the prototypes map to
    deterministic Soroban state transitions.
 
+## What To Look For While Judging
+
+The project is easiest to evaluate as five layers that reinforce each other:
+
+| Layer | Where to verify | Why it matters |
+|---|---|---|
+| Playable Pokemon loop | `public/pokemon/` and `/pokemon/` | Shows the core fantasy: movement, wild creatures, throws, captures, and battles. |
+| Product-quality alternate loop | `public/snake/` and `/snake/` | Shows progression, collection, routes, audio, and a complete handheld-style screen model. |
+| Authoritative multiplayer | `src/index.ts`, `src/sim.ts`, `/`, `/?bots=20` | Shows client intent flowing to a trusted authority instead of trusting client-reported outcomes. |
+| Portable protocol | `src/protocol.ts`, `rust/src/protocol.rs`, `rust/` | Shows the arena is not tied to one frontend; a browser and terminal client share the same state stream. |
+| Soroban path | `docs/research/overworld-soroban.md`, `battle-mechanics.md`, `data-progression.md` | Shows which game transitions become contract calls and how they stay deterministic and bounded. |
+
+The strongest through-line is authority. The browser games demonstrate the
+experience; the Durable Object arena demonstrates how to keep fast gameplay
+server-authoritative; the Soroban docs translate that same trust model into
+contract-sized transitions for progression, encounters, captures, and battles.
+
 ## Controls
 
 ### Pokémon Pocket Clash
@@ -264,6 +310,39 @@ The clients render independently. The browser arena uses Canvas 2D, local
 prediction, interpolation, mobile input, and Web Audio. The Rust client uses the
 same protocol but renders the world through a terminal pixel pipeline.
 
+## Soroban Mapping
+
+The repository does not pretend that every frame of a game belongs on-chain. It
+uses a practical split:
+
+- Client-side: sprites, animation, sound, tile art, dialogue, camera, input
+  feel, visual battle presentation, and fast local responsiveness.
+- Edge authority: real-time multiplayer intent validation, snapshots,
+  hibernatable WebSocket fan-out, and server-side bots for density testing.
+- Soroban authority: durable progression, route position, inventory, captures,
+  collection state, battle commitments, deterministic turn resolution, and
+  auditable state transitions.
+
+The Soroban research documents describe concrete contract-facing shapes:
+
+- `Player(addr)` style persistent records for route, position, facing, flags,
+  badges, money, party hash, center location, and nonce.
+- Separate keyed records for bag quantities, defeated trainers, picked-up
+  items, and other growth-prone state.
+- Route metadata anchored by hashes rather than storing full maps, art, and text
+  in contract storage.
+- One bounded movement prefix per transaction, stopping at the first trigger.
+- Commit-reveal encounter randomness, with the withholding tradeoff called out
+  explicitly.
+- Battle records with active party summaries, pending actions, turn number, RNG
+  seed/nonce, and deterministic fixed-point damage math.
+- Integer type-effectiveness, STAB, critical, accuracy, status, replacement,
+  catch, EXP, party, PC, and item modeling.
+
+That mapping is what makes the submission meaningfully "on Soroban" even before
+the contract source lands: it identifies the exact trust boundary and gives the
+next implementation step enough structure to build from.
+
 ## Binary Protocol
 
 The arena protocol is compact by design:
@@ -294,6 +373,31 @@ game next to a wallet. This project tackles the actual hard parts:
 That is why this is more than a theme demo. It is a full-stack exploration of
 how Pokemon-style gameplay can be made compatible with Soroban's execution
 model.
+
+## Verification Checklist
+
+Use these checks to confirm the repo is healthy:
+
+```sh
+npm run build
+```
+
+Expected result: TypeScript compiles the Worker without emitting files.
+
+```sh
+npm run dev
+```
+
+Expected result: Wrangler serves the Worker and static assets locally, including
+the Durable Object WebSocket route at `/ws`.
+
+```sh
+cd rust
+cargo run
+```
+
+Expected result: with the local Worker running, the terminal client connects to
+the same arena protocol and renders the live world.
 
 ## Key Files
 

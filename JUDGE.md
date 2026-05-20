@@ -23,6 +23,39 @@ For judges, the shortest path is: start at `/`, use the in-app links to play
 Pokemon loop, the Stellar-themed collection loop, and the server-authoritative
 multiplayer system in minutes.
 
+## The Winning Thesis
+
+Pokemon on Soroban should win because it solves the judging problem from both
+directions:
+
+- It is immediately playable. A judge can open the site and understand the
+  fantasy without reading architecture notes.
+- It is technically serious. The multiplayer arena uses an authoritative edge
+  simulation, hibernatable WebSockets, compact binary packets, prediction,
+  reconciliation, interpolation, bots, and a second client.
+- It is credible as a Soroban project. The repo identifies which parts of a
+  Pokemon-like game should become deterministic contract transitions and which
+  parts should stay client-side or edge-side.
+
+That combination is rare. A fun frontend alone is not enough. A contract sketch
+alone is not enough. This submission has a playable product surface and the
+systems thinking needed to turn that surface into auditable Soroban state.
+
+## Honest Scope
+
+The implemented artifacts are the browser games, Cloudflare Worker, Durable
+Object arena, binary protocol, bots, browser client, and Rust terminal client.
+The Soroban contract itself is not checked in as a finished contract. Instead,
+the repo includes the implementation plan for the contract layer in
+`docs/research/`, including storage keys, transaction boundaries, deterministic
+battle formulas, data modeling, and randomness design.
+
+That is a strength, not a dodge. The project does not claim that a full Pokemon
+world can simply be shoved into contract storage. It shows the correct product
+boundary: keep feel, art, sound, and rendering off-chain; put progression,
+captures, route validation, inventories, and battle resolution into
+deterministic, gas-bounded transitions.
+
 ## What Was Shipped
 
 ### 1. A Playable Pokemon-Style Browser Game
@@ -205,6 +238,24 @@ This is exactly the analysis an on-chain game needs. Soroban is deterministic,
 metered, and storage-sensitive. The docs respect those constraints instead of
 pretending a full game can be shoved blindly into contract storage.
 
+### 9. A Clear Evidence Trail
+
+The repo is structured so every major claim can be checked quickly:
+
+| Claim | Evidence |
+|---|---|
+| The main game loop is playable | `public/pokemon/`, served at `/pokemon/` |
+| There is a second complete creature-collector loop | `public/snake/`, served at `/snake/` |
+| Multiplayer authority lives server-side | `src/index.ts`, `src/sim.ts` |
+| Clients send intent, not outcomes | `readInputPacket` in `src/protocol.ts`, `webSocketMessage` in `src/index.ts` |
+| Snapshots are compact binary packets | `src/protocol.ts`, `buildSharedSnapshot` in `src/index.ts` |
+| Bots exercise the real simulation | `?bots=20`, `ensureBots`, and `updateBots` in `src/index.ts` |
+| The protocol is portable | `rust/src/protocol.rs` and the terminal client in `rust/` |
+| The Soroban design is concrete | `docs/research/overworld-soroban.md`, `battle-mechanics.md`, `data-progression.md` |
+
+This matters because a judge should not have to infer whether the project is
+real. The files line up with the pitch.
+
 ## Why It Is Awesome
 
 ### It Is Ambitious in the Right Way
@@ -254,6 +305,22 @@ it already applies the correct trust model:
 
 That same mindset carries into the Soroban docs: deterministic math,
 gas-bounded transitions, storage partitioning, and randomness analysis.
+
+### It Understands What Should Not Be On-Chain
+
+One of the most important technical choices is restraint. The docs separate
+state that needs authority from assets that only need rendering:
+
+- Sprites, animations, maps, audio, dialogue, camera movement, and input feel
+  stay in the client.
+- Real-time room coordination and fast snapshots stay in the Durable Object.
+- Progression, route location, inventory, captures, collection state, battle
+  actions, and battle resolution become Soroban-owned transitions.
+- Large static data is represented by compact IDs and hashes instead of copied
+  wholesale into contract storage.
+
+That is the difference between a blockchain-themed game and a game designed for
+blockchain constraints.
 
 ### It Is Built Like Engineers Cared
 
@@ -313,6 +380,12 @@ Very high. The project spans:
 | Rust client | WebSocket protocol parsing, terminal renderer, Ratatui/Crossterm loop |
 | Game feel | Camera, interpolation, animations, screen shake, particles, handheld UI, chiptune music |
 
+The especially difficult part is not any one bullet. It is that the pieces agree
+with each other: the protocol is compact enough for real-time play, the server
+is authoritative enough to be a trust model, the browser remains responsive
+through prediction/interpolation, and the Soroban docs preserve the same
+authority model in deterministic contract-sized operations.
+
 ### Creativity
 
 The idea is memorable: Pokemon on Soroban. It is funny, bold, technically
@@ -333,6 +406,26 @@ The repo contains multiple runnable artifacts:
 The Soroban design is documented in enough detail that implementation can
 continue from the current repo without rediscovering the core architecture.
 
+Recommended judge verification:
+
+```sh
+npm install
+npm run build
+npm run dev
+```
+
+Then open `/`, `/pokemon/`, `/snake/`, and `/?bots=20`.
+
+With the Worker still running:
+
+```sh
+cd rust
+cargo run
+```
+
+That checks the browser experience, Worker build, Durable Object route, WebSocket
+protocol, server-side bot path, and second client.
+
 ### Product Potential
 
 The path forward is clear:
@@ -350,6 +443,18 @@ The path forward is clear:
 The result can become a real on-chain game rather than a one-off hackathon
 screen.
 
+### Judge Delight
+
+Beyond the architecture, the project has the thing hackathon winners usually
+need: it is memorable. "Pokemon on Soroban" is easy to repeat, funny without
+being unserious, and backed by enough implementation that the joke turns into a
+technical argument. Judges can play it, see that it has breadth, and then inspect
+the repo to find real systems work underneath.
+
+The best demos create a moment where the room understands the idea before the
+presenter finishes explaining it. This one does that, then rewards deeper
+inspection.
+
 ## Final Argument
 
 Pokemon on Soroban should win because it combines ambition with execution. It
@@ -359,5 +464,6 @@ it, builds a second client in Rust, and documents the Soroban architecture neede
 to make the important state transitions deterministic, auditable, and
 gas-bounded.
 
-That is the kind of project a hackathon should reward: memorable idea, serious
-engineering, real demos, and a credible path from prototype to product.
+That is the kind of project a hackathon should reward: a memorable idea, serious
+engineering, real demos, honest constraint handling, and a credible path from
+prototype to product.
