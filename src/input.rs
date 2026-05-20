@@ -6,14 +6,20 @@ use crate::game::Action;
 
 pub fn poll_keys(timeout: Duration) -> HashSet<KeyCode> {
     let mut keys = HashSet::new();
-    // Drain all pending events, keep track of which keys are pressed
-    if event::poll(timeout).unwrap_or(false) {
-        while event::poll(Duration::ZERO).unwrap_or(false) {
+    let deadline = std::time::Instant::now() + timeout;
+    loop {
+        let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+        if remaining.is_zero() {
+            break;
+        }
+        if event::poll(remaining).unwrap_or(false) {
             if let Ok(Event::Key(key)) = event::read() {
                 if key.kind == KeyEventKind::Press {
                     keys.insert(key.code);
                 }
             }
+        } else {
+            break;
         }
     }
     keys
