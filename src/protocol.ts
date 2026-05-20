@@ -13,7 +13,6 @@ export const Button = {
   Thrust: 1 << 2,
   Fire: 1 << 3,
   Direct: 1 << 4,
-  Reverse: 1 << 5,
 } as const;
 
 export const WORLD_W = 8192;

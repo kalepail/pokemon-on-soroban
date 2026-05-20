@@ -108,7 +108,7 @@ export class Arena extends DurableObject<Env> {
     const seqDelta = (input.seq - player.lastSeq + 65536) & 0xffff;
     if (seqDelta === 0 || seqDelta > 4096) return;
     player.lastSeq = input.seq;
-    player.buttons = input.buttons & 0x3f;
+    player.buttons = input.buttons & 0x1f;
     player.aimAngle = input.aimAngle;
     player.throttle = input.throttle;
     player.lastInputTick = this.tick;
@@ -257,35 +257,21 @@ export class Arena extends DurableObject<Env> {
       const botId = this.nextPlayerId++;
       const bot = spawnPlayer(botId, botId * 7919 + this.tick);
       bot.lastInputTick = this.tick;
+      bot.buttons = (botId % 3 === 0 ? 0x08 : 0) | 0x04;
       this.players.set(botId, bot);
       this.botPlayerIds.add(botId);
     }
   }
 
   private updateBots() {
-    const Button = { Left: 1, Right: 2, Thrust: 4, Fire: 8 };
     for (const botId of this.botPlayerIds) {
       const bot = this.players.get(botId);
       if (!bot || !bot.alive) continue;
-
-      // Bots: walk around, turn, and throw pokeballs
-      const phase = Math.floor((this.tick + botId * 17) / 30) % 8;
-      let buttons = 0;
-
-      // Walk most of the time
-      if (phase !== 3 && phase !== 7) buttons |= Button.Thrust;
-      // Turn sometimes
-      if (phase === 0 || phase === 1) buttons |= Button.Left;
-      if (phase === 4 || phase === 5) buttons |= Button.Right;
-      // Throw pokeball occasionally
-      if ((this.tick + botId * 11) % 50 === 0) buttons |= Button.Fire;
-
-      // Turn away from walls
-      if (bot.x < 400) buttons |= Button.Right;
-      if (bot.x > 8192 - 400) buttons |= Button.Left;
-      if (bot.y < 400) buttons |= Button.Right;
-      if (bot.y > 8192 - 400) buttons |= Button.Left;
-
+      const phase = Math.floor((this.tick + botId * 17) / 18) % 5;
+      let buttons = 0x04;
+      if (phase === 0 || phase === 1) buttons |= 0x01;
+      if (phase === 3 || phase === 4) buttons |= 0x02;
+      if ((this.tick + botId * 11) % 38 === 0) buttons |= 0x08;
       bot.buttons = buttons;
       bot.lastInputTick = this.tick;
     }

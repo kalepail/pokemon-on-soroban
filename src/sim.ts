@@ -7,12 +7,15 @@ export const MS_PER_TICK = 1000 / TICK_RATE;
 const DIR_SCALE = 1024;
 const TURN_PER_TICK = 27;
 const DIRECT_TURN_PER_TICK = 72;
-const WALK_SPEED = 900;
-const BULLET_SPEED = 2000;
-const BULLET_TTL = Math.round(TICK_RATE * 1.0);
-const BULLET_HITTABLE_FRACTION = 0.35;
-const FIRE_COOLDOWN = 12;
-export const MAX_ACTIVE_BULLETS = 5;
+const THRUST_PER_TICK = 62;
+const DRAG_NUM = 996;
+const DRAG_DEN = 1024;
+const MAX_SPEED = 1520;
+const BULLET_SPEED = 2150;
+const BULLET_TTL = Math.round(TICK_RATE * 1.4);
+const FIRE_COOLDOWN = 5;
+export const MAX_ACTIVE_BULLETS = 10;
+export const POKE_BALL_RADIUS = 26;
 const BASE_RADIUS = 34;
 const POKE_BALL_SPAWN_GAP = 6;
 
@@ -59,8 +62,8 @@ export function spawnPlayer(id: number, seed: number): Player {
   const angle = (seed * 97) & (ANGLE_STEPS - 1);
   return {
     id,
-    x: clamp(positiveModulo(seed * 1543 + 1024, WORLD_W), 200, WORLD_W - 200),
-    y: clamp(positiveModulo(seed * 2141 + 2048, WORLD_H), 200, WORLD_H - 200),
+    x: positiveModulo(seed * 1543 + 1024, WORLD_W),
+    y: positiveModulo(seed * 2141 + 2048, WORLD_H),
     vx: 0,
     vy: 0,
     angle,
@@ -110,21 +113,19 @@ export function stepPlayer(player: Player, activeBulletCount = 0): Bullet | null
   if (!(player.buttons & Button.Direct) && player.buttons & Button.Right) {
     player.angle = positiveModulo(player.angle + TURN_PER_TICK, ANGLE_STEPS);
   }
-
-  // Direct movement: walk forward/backward at fixed speed
   if (player.buttons & Button.Thrust) {
-    player.vx = Math.trunc((cosTable[player.angle] * WALK_SPEED) / DIR_SCALE);
-    player.vy = Math.trunc((sinTable[player.angle] * WALK_SPEED) / DIR_SCALE);
-  } else if (player.buttons & Button.Reverse) {
-    player.vx = Math.trunc((-cosTable[player.angle] * WALK_SPEED) / DIR_SCALE);
-    player.vy = Math.trunc((-sinTable[player.angle] * WALK_SPEED) / DIR_SCALE);
-  } else {
-    player.vx = 0;
-    player.vy = 0;
+    const thrust = player.buttons & Button.Direct ? Math.max(18, Math.min(255, player.throttle)) : 255;
+    const thrustPerTick = Math.max(1, Math.trunc((THRUST_PER_TICK * thrust) / 255));
+    player.vx += Math.trunc((cosTable[player.angle] * thrustPerTick) / DIR_SCALE);
+    player.vy += Math.trunc((sinTable[player.angle] * thrustPerTick) / DIR_SCALE);
   }
 
-  player.x = clamp(player.x + Math.trunc(player.vx / TICK_RATE), 0, WORLD_W - 1);
-  player.y = clamp(player.y + Math.trunc(player.vy / TICK_RATE), 0, WORLD_H - 1);
+  player.vx = Math.trunc((player.vx * DRAG_NUM) / DRAG_DEN);
+  player.vy = Math.trunc((player.vy * DRAG_NUM) / DRAG_DEN);
+  clampVelocity(player);
+
+  player.x = wrap(player.x + Math.trunc(player.vx / TICK_RATE), WORLD_W);
+  player.y = wrap(player.y + Math.trunc(player.vy / TICK_RATE), WORLD_H);
 
   if (player.fireCooldown > 0) player.fireCooldown -= 1;
   if ((player.buttons & Button.Fire) && player.fireCooldown === 0 && activeBulletCount < MAX_ACTIVE_BULLETS) {
@@ -132,10 +133,10 @@ export function stepPlayer(player: Player, activeBulletCount = 0): Bullet | null
     return {
       id: 0,
       ownerId: player.id,
-      x: clamp(player.x + Math.trunc((cosTable[player.angle] * (player.radius + 18)) / DIR_SCALE), 0, WORLD_W - 1),
-      y: clamp(player.y + Math.trunc((sinTable[player.angle] * (player.radius + 18)) / DIR_SCALE), 0, WORLD_H - 1),
-      vx: Math.trunc((cosTable[player.angle] * BULLET_SPEED) / DIR_SCALE),
-      vy: Math.trunc((sinTable[player.angle] * BULLET_SPEED) / DIR_SCALE),
+      x: wrap(player.x + Math.trunc((cosTable[player.angle] * (player.radius + POKE_BALL_RADIUS + POKE_BALL_SPAWN_GAP)) / DIR_SCALE), WORLD_W),
+      y: wrap(player.y + Math.trunc((sinTable[player.angle] * (player.radius + POKE_BALL_RADIUS + POKE_BALL_SPAWN_GAP)) / DIR_SCALE), WORLD_H),
+      vx: player.vx + Math.trunc((cosTable[player.angle] * BULLET_SPEED) / DIR_SCALE),
+      vy: player.vy + Math.trunc((sinTable[player.angle] * BULLET_SPEED) / DIR_SCALE),
       ttl: BULLET_TTL,
     };
   }
@@ -144,14 +145,10 @@ export function stepPlayer(player: Player, activeBulletCount = 0): Bullet | null
 }
 
 export function stepBullet(bullet: Bullet): boolean {
-  const newX = bullet.x + Math.trunc(bullet.vx / TICK_RATE);
-  const newY = bullet.y + Math.trunc(bullet.vy / TICK_RATE);
-  bullet.x = clamp(newX, 0, WORLD_W - 1);
-  bullet.y = clamp(newY, 0, WORLD_H - 1);
+  bullet.x = wrap(bullet.x + Math.trunc(bullet.vx / TICK_RATE), WORLD_W);
+  bullet.y = wrap(bullet.y + Math.trunc(bullet.vy / TICK_RATE), WORLD_H);
   bullet.ttl -= 1;
-  if (bullet.ttl <= 0) return false;
-  if (newX < 0 || newX >= WORLD_W || newY < 0 || newY >= WORLD_H) return false;
-  return true;
+  return bullet.ttl > 0;
 }
 
 export function hitTest(
@@ -163,12 +160,11 @@ export function hitTest(
   prevPlayerY = player.y,
 ): boolean {
   if (!player.alive || player.id === bullet.ownerId) return false;
-  if (bullet.ttl > BULLET_TTL * BULLET_HITTABLE_FRACTION) return false;
-  const ax = prevX - player.x;
-  const ay = prevY - player.y;
-  const bx = ax + (bullet.x - prevX);
-  const by = ay + (bullet.y - prevY);
-  const radius = player.radius + 8;
+  const ax = torusDelta(prevX, prevPlayerX, WORLD_W);
+  const ay = torusDelta(prevY, prevPlayerY, WORLD_H);
+  const bx = ax + torusDelta(bullet.x, prevX, WORLD_W) - torusDelta(player.x, prevPlayerX, WORLD_W);
+  const by = ay + torusDelta(bullet.y, prevY, WORLD_H) - torusDelta(player.y, prevPlayerY, WORLD_H);
+  const radius = player.radius + POKE_BALL_RADIUS;
   return segmentIntersectsCircle(ax, ay, bx, by, radius);
 }
 
@@ -179,8 +175,17 @@ export function awardKill(shooter: Player | undefined) {
   shooter.radius = Math.min(110, shooter.radius + 5);
 }
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
+function clampVelocity(player: Player) {
+  const speedSq = player.vx * player.vx + player.vy * player.vy;
+  const maxSq = MAX_SPEED * MAX_SPEED;
+  if (speedSq <= maxSq) return;
+  const scale = MAX_SPEED / Math.sqrt(speedSq);
+  player.vx = Math.trunc(player.vx * scale);
+  player.vy = Math.trunc(player.vy * scale);
+}
+
+function wrap(value: number, size: number): number {
+  return positiveModulo(value, size);
 }
 
 function positiveModulo(value: number, size: number): number {
@@ -192,6 +197,13 @@ function stepAngleToward(from: number, to: number, maxStep: number): number {
   if (d < -ANGLE_STEPS / 2) d += ANGLE_STEPS;
   if (Math.abs(d) <= maxStep) return positiveModulo(to, ANGLE_STEPS);
   return positiveModulo(from + Math.sign(d) * maxStep, ANGLE_STEPS);
+}
+
+function torusDelta(a: number, b: number, size: number): number {
+  let d = a - b;
+  if (d > size / 2) d -= size;
+  if (d < -size / 2) d += size;
+  return d;
 }
 
 function segmentIntersectsCircle(ax: number, ay: number, bx: number, by: number, radius: number): boolean {
