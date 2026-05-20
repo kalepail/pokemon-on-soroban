@@ -11,8 +11,9 @@ const THRUST_PER_TICK = 62;
 const DRAG_NUM = 996;
 const DRAG_DEN = 1024;
 const MAX_SPEED = 1520;
-const BULLET_SPEED = 2150;
-const BULLET_TTL = Math.round(TICK_RATE * 1.4);
+const BULLET_SPEED = 1400;
+const BULLET_TTL = Math.round(TICK_RATE * 2.0);
+const BULLET_HITTABLE_FRACTION = 0.35;
 const FIRE_COOLDOWN = 5;
 export const MAX_ACTIVE_BULLETS = 10;
 export const POKE_BALL_RADIUS = 26;
@@ -62,8 +63,8 @@ export function spawnPlayer(id: number, seed: number): Player {
   const angle = (seed * 97) & (ANGLE_STEPS - 1);
   return {
     id,
-    x: positiveModulo(seed * 1543 + 1024, WORLD_W),
-    y: positiveModulo(seed * 2141 + 2048, WORLD_H),
+    x: clamp(positiveModulo(seed * 1543 + 1024, WORLD_W), 200, WORLD_W - 200),
+    y: clamp(positiveModulo(seed * 2141 + 2048, WORLD_H), 200, WORLD_H - 200),
     vx: 0,
     vy: 0,
     angle,
@@ -124,8 +125,8 @@ export function stepPlayer(player: Player, activeBulletCount = 0): Bullet | null
   player.vy = Math.trunc((player.vy * DRAG_NUM) / DRAG_DEN);
   clampVelocity(player);
 
-  player.x = wrap(player.x + Math.trunc(player.vx / TICK_RATE), WORLD_W);
-  player.y = wrap(player.y + Math.trunc(player.vy / TICK_RATE), WORLD_H);
+  player.x = clamp(player.x + Math.trunc(player.vx / TICK_RATE), 0, WORLD_W - 1);
+  player.y = clamp(player.y + Math.trunc(player.vy / TICK_RATE), 0, WORLD_H - 1);
 
   if (player.fireCooldown > 0) player.fireCooldown -= 1;
   if ((player.buttons & Button.Fire) && player.fireCooldown === 0 && activeBulletCount < MAX_ACTIVE_BULLETS) {
@@ -133,10 +134,10 @@ export function stepPlayer(player: Player, activeBulletCount = 0): Bullet | null
     return {
       id: 0,
       ownerId: player.id,
-      x: wrap(player.x + Math.trunc((cosTable[player.angle] * (player.radius + POKE_BALL_RADIUS + POKE_BALL_SPAWN_GAP)) / DIR_SCALE), WORLD_W),
-      y: wrap(player.y + Math.trunc((sinTable[player.angle] * (player.radius + POKE_BALL_RADIUS + POKE_BALL_SPAWN_GAP)) / DIR_SCALE), WORLD_H),
-      vx: player.vx + Math.trunc((cosTable[player.angle] * BULLET_SPEED) / DIR_SCALE),
-      vy: player.vy + Math.trunc((sinTable[player.angle] * BULLET_SPEED) / DIR_SCALE),
+      x: clamp(player.x + Math.trunc((cosTable[player.angle] * (player.radius + 18)) / DIR_SCALE), 0, WORLD_W - 1),
+      y: clamp(player.y + Math.trunc((sinTable[player.angle] * (player.radius + 18)) / DIR_SCALE), 0, WORLD_H - 1),
+      vx: Math.trunc((cosTable[player.angle] * BULLET_SPEED) / DIR_SCALE),
+      vy: Math.trunc((sinTable[player.angle] * BULLET_SPEED) / DIR_SCALE),
       ttl: BULLET_TTL,
     };
   }
@@ -145,10 +146,14 @@ export function stepPlayer(player: Player, activeBulletCount = 0): Bullet | null
 }
 
 export function stepBullet(bullet: Bullet): boolean {
-  bullet.x = wrap(bullet.x + Math.trunc(bullet.vx / TICK_RATE), WORLD_W);
-  bullet.y = wrap(bullet.y + Math.trunc(bullet.vy / TICK_RATE), WORLD_H);
+  const newX = bullet.x + Math.trunc(bullet.vx / TICK_RATE);
+  const newY = bullet.y + Math.trunc(bullet.vy / TICK_RATE);
+  bullet.x = clamp(newX, 0, WORLD_W - 1);
+  bullet.y = clamp(newY, 0, WORLD_H - 1);
   bullet.ttl -= 1;
-  return bullet.ttl > 0;
+  if (bullet.ttl <= 0) return false;
+  if (newX < 0 || newX >= WORLD_W || newY < 0 || newY >= WORLD_H) return false;
+  return true;
 }
 
 export function hitTest(
@@ -160,11 +165,12 @@ export function hitTest(
   prevPlayerY = player.y,
 ): boolean {
   if (!player.alive || player.id === bullet.ownerId) return false;
-  const ax = torusDelta(prevX, prevPlayerX, WORLD_W);
-  const ay = torusDelta(prevY, prevPlayerY, WORLD_H);
-  const bx = ax + torusDelta(bullet.x, prevX, WORLD_W) - torusDelta(player.x, prevPlayerX, WORLD_W);
-  const by = ay + torusDelta(bullet.y, prevY, WORLD_H) - torusDelta(player.y, prevPlayerY, WORLD_H);
-  const radius = player.radius + POKE_BALL_RADIUS;
+  if (bullet.ttl > BULLET_TTL * BULLET_HITTABLE_FRACTION) return false;
+  const ax = prevX - player.x;
+  const ay = prevY - player.y;
+  const bx = ax + (bullet.x - prevX);
+  const by = ay + (bullet.y - prevY);
+  const radius = player.radius + 8;
   return segmentIntersectsCircle(ax, ay, bx, by, radius);
 }
 
@@ -182,6 +188,10 @@ function clampVelocity(player: Player) {
   const scale = MAX_SPEED / Math.sqrt(speedSq);
   player.vx = Math.trunc(player.vx * scale);
   player.vy = Math.trunc(player.vy * scale);
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
 }
 
 function wrap(value: number, size: number): number {

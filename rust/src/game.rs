@@ -42,11 +42,11 @@ impl GameState {
     pub fn interpolated_pos(&self, x: u16, y: u16, vx: i16, vy: i16) -> (f64, f64) {
         let dt = self.snapshot_time.elapsed().as_secs_f64();
         let ticks = dt * SERVER_TICK_RATE;
-        let ww = self.world_width as f64;
-        let wh = self.world_height as f64;
-        let ix = x as f64 + (vx as f64 / SERVER_TICK_RATE) * ticks;
-        let iy = y as f64 + (vy as f64 / SERVER_TICK_RATE) * ticks;
-        (((ix % ww) + ww) % ww, ((iy % wh) + wh) % wh)
+        let ww = self.world_width as f64 - 1.0;
+        let wh = self.world_height as f64 - 1.0;
+        let ix = (x as f64 + (vx as f64 / SERVER_TICK_RATE) * ticks).clamp(0.0, ww);
+        let iy = (y as f64 + (vy as f64 / SERVER_TICK_RATE) * ticks).clamp(0.0, wh);
+        (ix, iy)
     }
 }
 
