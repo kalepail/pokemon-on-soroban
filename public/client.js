@@ -10,6 +10,7 @@ const Button = {
   Right: 1 << 1,
   Thrust: 1 << 2,
   Fire: 1 << 3,
+  Direct: 1 << 4,
 };
 
 const PLAYER_BYTES = 19;
@@ -95,9 +96,9 @@ const audio = {
 };
 
 const touchInput = {
-  left: false,
-  right: false,
-  thrust: false,
+  active: false,
+  aimAngle: 0,
+  throttle: 0,
   fire: false,
   stickPointerId: null,
 };
@@ -270,12 +271,15 @@ function readPacket(buffer) {
 function sendInput() {
   if (isDead || !socket || socket.readyState !== WebSocket.OPEN) return;
   const buttons = currentButtons();
-  const buffer = new ArrayBuffer(8);
+  const buffer = new ArrayBuffer(12);
   const view = new DataView(buffer);
   view.setUint8(0, Packet.Input);
   view.setUint16(1, inputSeq, true);
   view.setUint8(3, buttons);
   view.setUint32(4, serverTick, true);
+  view.setUint16(8, touchInput.active ? touchInput.aimAngle : 0, true);
+  view.setUint8(10, touchInput.active ? touchInput.throttle : 0);
+  view.setUint8(11, 0);
   inputSeq = (inputSeq + 1) & 0xffff;
   socket.send(buffer);
 
@@ -286,9 +290,10 @@ function sendInput() {
 function currentButtons() {
   if (isDead) return 0;
   let buttons = 0;
-  if (keys.has("ArrowLeft") || keys.has("KeyA") || touchInput.left) buttons |= Button.Left;
-  if (keys.has("ArrowRight") || keys.has("KeyD") || touchInput.right) buttons |= Button.Right;
-  if (keys.has("ArrowUp") || keys.has("KeyW") || touchInput.thrust) buttons |= Button.Thrust;
+  if (touchInput.active) buttons |= Button.Direct | Button.Thrust;
+  if (keys.has("ArrowLeft") || keys.has("KeyA")) buttons |= Button.Left;
+  if (keys.has("ArrowRight") || keys.has("KeyD")) buttons |= Button.Right;
+  if (keys.has("ArrowUp") || keys.has("KeyW")) buttons |= Button.Thrust;
   if (keys.has("Space") || keys.has("KeyJ") || touchInput.fire) buttons |= Button.Fire;
   return buttons;
 }
@@ -994,19 +999,23 @@ function updateStick(event) {
   const cx = rect.left + rect.width / 2;
   const cy = rect.top + rect.height / 2;
   const max = Math.min(rect.width, rect.height) * 0.28;
-  const dx = clamp(event.clientX - cx, -max, max);
-  const dy = clamp(event.clientY - cy, -max, max);
+  const rawDx = event.clientX - cx;
+  const rawDy = event.clientY - cy;
+  const distance = Math.hypot(rawDx, rawDy);
+  const scale = distance > max ? max / distance : 1;
+  const dx = rawDx * scale;
+  const dy = rawDy * scale;
   const dead = max * 0.18;
-  touchInput.left = dx < -dead;
-  touchInput.right = dx > dead;
-  touchInput.thrust = dy < -dead || Math.hypot(dx, dy) > max * 0.72;
+  const activeDistance = Math.hypot(dx, dy);
+  touchInput.active = activeDistance > dead;
+  touchInput.aimAngle = touchInput.active ? Math.round((Math.atan2(dy, dx) / (Math.PI * 2)) * 1024 + 1024) % 1024 : touchInput.aimAngle;
+  touchInput.throttle = touchInput.active ? Math.round(clamp((activeDistance - dead) / (max - dead), 0, 1) * 255) : 0;
   stickKnobEl.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
 }
 
 function resetStick() {
-  touchInput.left = false;
-  touchInput.right = false;
-  touchInput.thrust = false;
+  touchInput.active = false;
+  touchInput.throttle = 0;
   touchInput.stickPointerId = null;
   stickZoneEl?.classList.remove("is-active");
   if (stickKnobEl) stickKnobEl.style.transform = "translate(-50%, -50%)";

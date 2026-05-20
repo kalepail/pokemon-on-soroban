@@ -108,7 +108,9 @@ export class Arena extends DurableObject<Env> {
     const seqDelta = (input.seq - player.lastSeq + 65536) & 0xffff;
     if (seqDelta === 0 || seqDelta > 4096) return;
     player.lastSeq = input.seq;
-    player.buttons = input.buttons & 0x0f;
+    player.buttons = input.buttons & 0x1f;
+    player.aimAngle = input.aimAngle;
+    player.throttle = input.throttle;
     player.lastInputTick = this.tick;
   }
 

@@ -6,6 +6,7 @@ export const MS_PER_TICK = 1000 / TICK_RATE;
 
 const DIR_SCALE = 1024;
 const TURN_PER_TICK = 27;
+const DIRECT_TURN_PER_TICK = 72;
 const THRUST_PER_TICK = 62;
 const DRAG_NUM = 996;
 const DRAG_DEN = 1024;
@@ -35,6 +36,8 @@ export type Player = {
   hue: number;
   alive: boolean;
   buttons: number;
+  aimAngle: number;
+  throttle: number;
   lastSeq: number;
   lastInputTick: number;
   fireCooldown: number;
@@ -66,6 +69,8 @@ export function spawnPlayer(id: number, seed: number): Player {
     hue: (seed * 47) % 360,
     alive: true,
     buttons: 0,
+    aimAngle: angle,
+    throttle: 0,
     lastSeq: 0,
     lastInputTick: 0,
     fireCooldown: 0,
@@ -85,6 +90,8 @@ export function respawnPlayer(player: Player, seed: number) {
   player.score = 0;
   player.alive = true;
   player.buttons = 0;
+  player.aimAngle = fresh.angle;
+  player.throttle = 0;
   player.fireCooldown = 0;
   player.respawnTicks = 0;
 }
@@ -95,15 +102,19 @@ export function stepPlayer(player: Player): Bullet | null {
     return null;
   }
 
-  if (player.buttons & Button.Left) {
+  if (player.buttons & Button.Direct) {
+    player.angle = stepAngleToward(player.angle, player.aimAngle, DIRECT_TURN_PER_TICK);
+  } else if (player.buttons & Button.Left) {
     player.angle = positiveModulo(player.angle - TURN_PER_TICK, ANGLE_STEPS);
   }
-  if (player.buttons & Button.Right) {
+  if (!(player.buttons & Button.Direct) && player.buttons & Button.Right) {
     player.angle = positiveModulo(player.angle + TURN_PER_TICK, ANGLE_STEPS);
   }
   if (player.buttons & Button.Thrust) {
-    player.vx += Math.trunc((cosTable[player.angle] * THRUST_PER_TICK) / DIR_SCALE);
-    player.vy += Math.trunc((sinTable[player.angle] * THRUST_PER_TICK) / DIR_SCALE);
+    const thrust = player.buttons & Button.Direct ? Math.max(18, Math.min(255, player.throttle)) : 255;
+    const thrustPerTick = Math.max(1, Math.trunc((THRUST_PER_TICK * thrust) / 255));
+    player.vx += Math.trunc((cosTable[player.angle] * thrustPerTick) / DIR_SCALE);
+    player.vy += Math.trunc((sinTable[player.angle] * thrustPerTick) / DIR_SCALE);
   }
 
   player.vx = Math.trunc((player.vx * DRAG_NUM) / DRAG_DEN);
@@ -169,6 +180,13 @@ function wrap(value: number, size: number): number {
 
 function positiveModulo(value: number, size: number): number {
   return ((value % size) + size) % size;
+}
+
+function stepAngleToward(from: number, to: number, maxStep: number): number {
+  let d = positiveModulo(to - from + ANGLE_STEPS / 2, ANGLE_STEPS) - ANGLE_STEPS / 2;
+  if (d < -ANGLE_STEPS / 2) d += ANGLE_STEPS;
+  if (Math.abs(d) <= maxStep) return positiveModulo(to, ANGLE_STEPS);
+  return positiveModulo(from + Math.sign(d) * maxStep, ANGLE_STEPS);
 }
 
 function torusDelta(a: number, b: number, size: number): number {

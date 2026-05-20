@@ -7,6 +7,10 @@
 
 * {
   box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 body {
@@ -30,6 +34,7 @@ body {
   width: 100vw;
   height: 100vh;
   background: #070a0e;
+  touch-action: none;
 }
 
 .hud {
