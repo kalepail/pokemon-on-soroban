@@ -4,8 +4,12 @@ use ratatui::style::{Color, Style};
 use crate::game::GameState;
 
 const OUTSIDE_COLOR: Color = Color::Rgb(30, 20, 10);
-const PLAYER_COLOR: Color = Color::Rgb(80, 220, 100);
-const PLAYER_NOSE_COLOR: Color = Color::Rgb(140, 255, 160);
+const SKIN_COLOR: Color = Color::Rgb(240, 200, 160);
+const HAIR_COLOR: Color = Color::Rgb(60, 30, 15);
+const HAT_COLOR: Color = Color::Rgb(220, 50, 40);
+const SHIRT_COLOR: Color = Color::Rgb(50, 100, 200);
+const PANTS_COLOR: Color = Color::Rgb(40, 40, 100);
+const SHOE_COLOR: Color = Color::Rgb(60, 40, 30);
 const POKEBALL_RED: Color = Color::Rgb(220, 50, 50);
 const POKEBALL_WHITE: Color = Color::Rgb(240, 240, 240);
 const POKEBALL_BAND: Color = Color::Rgb(40, 40, 40);
@@ -244,25 +248,44 @@ pub fn draw(frame: &mut Frame, state: &GameState) {
         }
     }
 
-    // Draw player: 5x5 body with nose
+    // Draw player as a little person sprite
+    // Sprite is defined facing right, then rotated by direction
     let px = (state.player.position.0 - vp.left).floor() as i32;
     let py = (state.player.position.1 - vp.top).floor() as i32;
-
-    for dy in -2..=2i32 {
-        for dx in -2..=2i32 {
-            // Skip corners for a rounder shape
-            if dx.abs() == 2 && dy.abs() == 2 {
-                continue;
-            }
-            set_pixel(&mut pixels, w, h, px + dx, py + dy, PLAYER_COLOR);
-        }
-    }
-
-    // Nose: 3 pixels out in facing direction
     let (ndx, ndy) = state.player.direction;
-    let nose_x = (px as f64 + ndx * 3.0).round() as i32;
-    let nose_y = (py as f64 + ndy * 3.0).round() as i32;
-    set_pixel(&mut pixels, w, h, nose_x, nose_y, PLAYER_NOSE_COLOR);
+    let angle = ndy.atan2(ndx);
+
+    // Sprite pixels: (dx, dy, color) relative to center, facing right
+    let sprite: &[(f64, f64, Color)] = &[
+        // Hat
+        (0.0, -4.0, HAT_COLOR), (1.0, -4.0, HAT_COLOR), (2.0, -4.0, HAT_COLOR),
+        (-1.0, -3.0, HAT_COLOR), (0.0, -3.0, HAT_COLOR), (1.0, -3.0, HAT_COLOR), (2.0, -3.0, HAT_COLOR),
+        // Head
+        (-1.0, -2.0, SKIN_COLOR), (0.0, -2.0, SKIN_COLOR), (1.0, -2.0, SKIN_COLOR),
+        (-1.0, -1.0, SKIN_COLOR), (0.0, -1.0, SKIN_COLOR), (1.0, -1.0, SKIN_COLOR),
+        // Eyes
+        (1.0, -2.0, HAIR_COLOR),
+        // Body
+        (-1.0, 0.0, SHIRT_COLOR), (0.0, 0.0, SHIRT_COLOR), (1.0, 0.0, SHIRT_COLOR),
+        (-1.0, 1.0, SHIRT_COLOR), (0.0, 1.0, SHIRT_COLOR), (1.0, 1.0, SHIRT_COLOR),
+        (0.0, 2.0, SHIRT_COLOR),
+        // Arms
+        (-2.0, 0.0, SKIN_COLOR), (2.0, 0.0, SKIN_COLOR),
+        (-2.0, 1.0, SKIN_COLOR), (2.0, 1.0, SKIN_COLOR),
+        // Legs
+        (-1.0, 2.0, PANTS_COLOR), (1.0, 2.0, PANTS_COLOR),
+        (-1.0, 3.0, PANTS_COLOR), (1.0, 3.0, PANTS_COLOR),
+        // Shoes
+        (-1.0, 4.0, SHOE_COLOR), (1.0, 4.0, SHOE_COLOR),
+    ];
+
+    let cos_a = angle.cos();
+    let sin_a = angle.sin();
+    for &(sdx, sdy, color) in sprite {
+        let rx = (sdx * cos_a - sdy * sin_a).round() as i32;
+        let ry = (sdx * sin_a + sdy * cos_a).round() as i32;
+        set_pixel(&mut pixels, w, h, px + rx, py + ry, color);
+    }
 
     // Render pixel pairs as half-block characters (1 wide, 2 tall per cell)
     let buf = frame.buffer_mut();
