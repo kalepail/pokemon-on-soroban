@@ -117,13 +117,16 @@ fn hsl_to_rgb(h: f64, s: f64, l: f64) -> (u8, u8, u8) {
     )
 }
 
+const BASE_RADIUS: f64 = 34.0;
+
 fn draw_player_sprite(
     pixels: &mut [Color], w: usize, h: usize,
-    px: i32, py: i32, angle: u16, alive: bool, hue: u16,
+    px: i32, py: i32, angle: u16, alive: bool, hue: u16, radius: u16,
 ) {
     let (ndx, ndy) = angle_to_direction(angle);
     let cos_a = ndx;
     let sin_a = ndy;
+    let scale = radius as f64 / BASE_RADIUS;
 
     let shirt = if alive { hue_to_shirt_color(hue) } else { DEAD_COLOR };
     let skin = if alive { SKIN_COLOR } else { Color::Rgb(140, 140, 140) };
@@ -153,9 +156,24 @@ fn draw_player_sprite(
     ];
 
     for &(sdx, sdy, color) in sprite {
-        let rx = (sdx * cos_a - sdy * sin_a).round() as i32;
-        let ry = (sdx * sin_a + sdy * cos_a).round() as i32;
+        let sx = sdx * scale;
+        let sy = sdy * scale;
+        let rx = (sx * cos_a - sy * sin_a).round() as i32;
+        let ry = (sx * sin_a + sy * cos_a).round() as i32;
         set_pixel(pixels, w, h, px + rx, py + ry, color);
+    }
+
+    // Fill gaps at larger scales by drawing extra pixels
+    if scale > 1.5 {
+        for &(sdx, sdy, color) in sprite {
+            let sx = sdx * scale;
+            let sy = sdy * scale;
+            for &(ox, oy) in &[(0.5, 0.0), (0.0, 0.5), (0.5, 0.5)] {
+                let rx = ((sx + ox) * cos_a - (sy + oy) * sin_a).round() as i32;
+                let ry = ((sx + ox) * sin_a + (sy + oy) * cos_a).round() as i32;
+                set_pixel(pixels, w, h, px + rx, py + ry, color);
+            }
+        }
     }
 }
 
@@ -250,7 +268,7 @@ pub fn draw(frame: &mut Frame, state: &GameState) {
 
         draw_player_sprite(
             &mut pixels, w, h,
-            sx, sy, player.angle, player.alive, player.hue,
+            sx, sy, player.angle, player.alive, player.hue, player.radius,
         );
     }
 
