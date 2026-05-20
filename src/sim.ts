@@ -7,16 +7,12 @@ export const MS_PER_TICK = 1000 / TICK_RATE;
 const DIR_SCALE = 1024;
 const TURN_PER_TICK = 27;
 const DIRECT_TURN_PER_TICK = 72;
-const THRUST_PER_TICK = 62;
-const DRAG_NUM = 996;
-const DRAG_DEN = 1024;
-const MAX_SPEED = 1520;
+const WALK_SPEED = 900;
 const BULLET_SPEED = 1400;
 const BULLET_TTL = Math.round(TICK_RATE * 2.0);
 const BULLET_HITTABLE_FRACTION = 0.35;
-const FIRE_COOLDOWN = 5;
-export const MAX_ACTIVE_BULLETS = 10;
-export const POKE_BALL_RADIUS = 26;
+const FIRE_COOLDOWN = 12;
+export const MAX_ACTIVE_BULLETS = 5;
 const BASE_RADIUS = 34;
 const POKE_BALL_SPAWN_GAP = 6;
 
@@ -114,16 +110,15 @@ export function stepPlayer(player: Player, activeBulletCount = 0): Bullet | null
   if (!(player.buttons & Button.Direct) && player.buttons & Button.Right) {
     player.angle = positiveModulo(player.angle + TURN_PER_TICK, ANGLE_STEPS);
   }
-  if (player.buttons & Button.Thrust) {
-    const thrust = player.buttons & Button.Direct ? Math.max(18, Math.min(255, player.throttle)) : 255;
-    const thrustPerTick = Math.max(1, Math.trunc((THRUST_PER_TICK * thrust) / 255));
-    player.vx += Math.trunc((cosTable[player.angle] * thrustPerTick) / DIR_SCALE);
-    player.vy += Math.trunc((sinTable[player.angle] * thrustPerTick) / DIR_SCALE);
-  }
 
-  player.vx = Math.trunc((player.vx * DRAG_NUM) / DRAG_DEN);
-  player.vy = Math.trunc((player.vy * DRAG_NUM) / DRAG_DEN);
-  clampVelocity(player);
+  // Direct movement: walk forward at fixed speed when thrust is held
+  if (player.buttons & Button.Thrust) {
+    player.vx = Math.trunc((cosTable[player.angle] * WALK_SPEED) / DIR_SCALE);
+    player.vy = Math.trunc((sinTable[player.angle] * WALK_SPEED) / DIR_SCALE);
+  } else {
+    player.vx = 0;
+    player.vy = 0;
+  }
 
   player.x = clamp(player.x + Math.trunc(player.vx / TICK_RATE), 0, WORLD_W - 1);
   player.y = clamp(player.y + Math.trunc(player.vy / TICK_RATE), 0, WORLD_H - 1);
@@ -181,21 +176,8 @@ export function awardKill(shooter: Player | undefined) {
   shooter.radius = Math.min(110, shooter.radius + 5);
 }
 
-function clampVelocity(player: Player) {
-  const speedSq = player.vx * player.vx + player.vy * player.vy;
-  const maxSq = MAX_SPEED * MAX_SPEED;
-  if (speedSq <= maxSq) return;
-  const scale = MAX_SPEED / Math.sqrt(speedSq);
-  player.vx = Math.trunc(player.vx * scale);
-  player.vy = Math.trunc(player.vy * scale);
-}
-
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
-}
-
-function wrap(value: number, size: number): number {
-  return positiveModulo(value, size);
 }
 
 function positiveModulo(value: number, size: number): number {
@@ -207,13 +189,6 @@ function stepAngleToward(from: number, to: number, maxStep: number): number {
   if (d < -ANGLE_STEPS / 2) d += ANGLE_STEPS;
   if (Math.abs(d) <= maxStep) return positiveModulo(to, ANGLE_STEPS);
   return positiveModulo(from + Math.sign(d) * maxStep, ANGLE_STEPS);
-}
-
-function torusDelta(a: number, b: number, size: number): number {
-  let d = a - b;
-  if (d > size / 2) d -= size;
-  if (d < -size / 2) d += size;
-  return d;
 }
 
 function segmentIntersectsCircle(ax: number, ay: number, bx: number, by: number, radius: number): boolean {
