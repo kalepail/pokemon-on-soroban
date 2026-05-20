@@ -19,6 +19,7 @@ pub struct Projectile {
     pub speed: f64,
 }
 
+#[derive(Debug)]
 pub enum Action {
     Move(Direction),
     Shoot,
