@@ -147,7 +147,7 @@ fn color_dist(a: Color, b: Color) -> i32 {
 
 pub fn draw(frame: &mut Frame, state: &GameState) {
     let area = frame.area();
-    let pixel_w = area.width as usize * 2;
+    let pixel_w = area.width as usize;
     let pixel_h = area.height as usize * 2;
     let vp = compute_viewport(
         state.player.position,
@@ -208,23 +208,19 @@ pub fn draw(frame: &mut Frame, state: &GameState) {
     let nose_y = (py as f64 + ndy * 3.0).round() as i32;
     set_pixel(&mut pixels, w, h, nose_x, nose_y, PLAYER_NOSE_COLOR);
 
-    // Render pixel buffer as quadrant block characters
+    // Render pixel pairs as half-block characters (1 wide, 2 tall per cell)
     let buf = frame.buffer_mut();
     for row in 0..area.height {
+        let top_y = row as usize * 2;
+        let bot_y = top_y + 1;
         for col in 0..area.width {
-            let x = col as usize * 2;
-            let y = row as usize * 2;
-
-            let tl = pixels[y * w + x];
-            let tr = if x + 1 < w { pixels[y * w + x + 1] } else { BG_COLOR };
-            let bl = if y + 1 < h { pixels[(y + 1) * w + x] } else { BG_COLOR };
-            let br = if x + 1 < w && y + 1 < h { pixels[(y + 1) * w + x + 1] } else { BG_COLOR };
-
-            let (ch, fg, bg) = quadrant_cell(tl, tr, bl, br);
+            let x = col as usize;
+            let top_color = if top_y < h { pixels[top_y * w + x] } else { BG_COLOR };
+            let bot_color = if bot_y < h { pixels[bot_y * w + x] } else { BG_COLOR };
 
             let cell = &mut buf[(area.x + col, area.y + row)];
-            cell.set_char(ch);
-            cell.set_style(Style::default().fg(fg).bg(bg));
+            cell.set_char('▀');
+            cell.set_style(Style::default().fg(top_color).bg(bot_color));
         }
     }
 }
