@@ -13,6 +13,7 @@ body {
   margin: 0;
   min-height: 100vh;
   overflow: hidden;
+  overscroll-behavior: none;
   background:
     radial-gradient(circle at 20% 20%, rgba(0, 194, 168, 0.18), transparent 28rem),
     radial-gradient(circle at 85% 65%, rgba(255, 195, 77, 0.14), transparent 24rem),
@@ -96,18 +97,198 @@ body {
   color: #ffc34d;
 }
 
+.touch-controls {
+  position: absolute;
+  inset: auto 0 0;
+  z-index: 3;
+  display: none;
+  pointer-events: none;
+  touch-action: none;
+}
+
+.stick-zone,
+.fire-button {
+  pointer-events: auto;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.stick-zone {
+  position: absolute;
+  left: max(1rem, env(safe-area-inset-left));
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  width: 9.5rem;
+  height: 9.5rem;
+  display: grid;
+  place-items: center;
+}
+
+.stick-base {
+  position: relative;
+  width: 7.6rem;
+  height: 7.6rem;
+  border: 1px solid rgba(80, 240, 200, 0.28);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(80, 240, 200, 0.16), transparent 35%),
+    rgba(7, 12, 18, 0.54);
+  box-shadow: inset 0 0 28px rgba(80, 240, 200, 0.08), 0 18px 38px rgba(0, 0, 0, 0.36);
+  backdrop-filter: blur(10px);
+}
+
+.stick-base::before,
+.stick-base::after {
+  content: "";
+  position: absolute;
+  inset: 50% 1.2rem auto;
+  height: 1px;
+  background: rgba(232, 247, 255, 0.18);
+}
+
+.stick-base::after {
+  inset: 1.2rem auto;
+  left: 50%;
+  width: 1px;
+  height: auto;
+}
+
+.stick-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 3.2rem;
+  height: 3.2rem;
+  border: 1px solid rgba(255, 245, 199, 0.72);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 35% 28%, rgba(255, 245, 199, 0.88), rgba(255, 195, 77, 0.62) 35%, rgba(255, 112, 67, 0.72));
+  box-shadow: 0 0 18px rgba(255, 195, 77, 0.26);
+  transform: translate(-50%, -50%);
+}
+
+.stick-zone.is-active .stick-base {
+  border-color: rgba(255, 245, 199, 0.52);
+}
+
+.fire-button {
+  position: absolute;
+  right: max(1.25rem, env(safe-area-inset-right));
+  bottom: max(1.55rem, env(safe-area-inset-bottom));
+  width: 6.2rem;
+  height: 6.2rem;
+  border: 1px solid rgba(255, 245, 199, 0.58);
+  border-radius: 50%;
+  color: #fff5c7;
+  background:
+    radial-gradient(circle at 38% 28%, rgba(255, 245, 199, 0.32), transparent 34%),
+    linear-gradient(145deg, rgba(255, 70, 116, 0.88), rgba(166, 39, 74, 0.9));
+  box-shadow: 0 0 0 8px rgba(255, 70, 116, 0.08), 0 18px 40px rgba(0, 0, 0, 0.42);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.fire-button.is-active {
+  transform: scale(0.94);
+  box-shadow: 0 0 0 13px rgba(255, 70, 116, 0.13), 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.death-modal {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(4, 7, 11, 0.58);
+  backdrop-filter: blur(7px);
+}
+
+.death-modal[hidden] {
+  display: none;
+}
+
+.death-panel {
+  width: min(21rem, calc(100vw - 2rem));
+  display: grid;
+  gap: 1rem;
+  padding: 1.1rem;
+  border: 1px solid rgba(255, 70, 116, 0.36);
+  border-radius: 8px;
+  background: rgba(7, 12, 18, 0.88);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5);
+  text-align: center;
+}
+
+.death-score {
+  color: rgba(232, 247, 255, 0.72);
+  font-size: 0.9rem;
+}
+
+.death-score strong {
+  color: #fff5c7;
+  font-size: 1.45rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.respawn-button {
+  min-height: 3rem;
+  border: 1px solid rgba(80, 240, 200, 0.42);
+  border-radius: 6px;
+  color: #071016;
+  background: #50f0c8;
+  font: inherit;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.respawn-button:active {
+  transform: translateY(1px);
+}
+
 @media (max-width: 760px) {
+  body {
+    background: #080b0f;
+  }
+
   .hud {
-    width: calc(50vw - 1.25rem);
-    padding: 0.7rem;
+    top: max(0.7rem, env(safe-area-inset-top));
+    left: 0.7rem;
+    width: min(15rem, calc(100vw - 1.4rem));
+    grid-template-columns: 1fr 1fr;
+    align-items: center;
+    gap: 0.35rem 0.8rem;
+    padding: 0.62rem 0.7rem;
+    background: rgba(7, 12, 18, 0.58);
   }
 
+  .brand {
+    grid-column: 1 / -1;
+    font-size: 0.75rem;
+  }
+
+  .metric {
+    min-height: 1.25rem;
+    gap: 0.55rem;
+    font-size: 0.74rem;
+  }
+
+  .metric-meta,
   .hud-right {
-    left: auto;
-    right: 0.75rem;
+    display: none;
   }
 
-  .hud-left {
-    left: 0.75rem;
+  .touch-controls {
+    display: block;
+  }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .touch-controls {
+    display: block;
   }
 }

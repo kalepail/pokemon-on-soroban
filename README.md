@@ -19,6 +19,7 @@ Controls:
 - `ArrowUp` / `W`: thrust
 - `Space` / `J`: fire
 - `M`: mute/unmute procedural audio
+- Mobile: drag the left joystick to turn/thrust and hold the right fire button
 
 Load-test the local arena with server-side bots:
 

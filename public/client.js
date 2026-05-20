@@ -60,6 +60,12 @@ const shipEl = document.querySelector("#ship");
 const shipsEl = document.querySelector("#ships");
 const scoreEl = document.querySelector("#score");
 const leaderboardEl = document.querySelector("#leaderboard");
+const stickZoneEl = document.querySelector("#stick-zone");
+const stickKnobEl = document.querySelector("#stick-knob");
+const fireButtonEl = document.querySelector("#fire-button");
+const deathModalEl = document.querySelector("#death-modal");
+const deathScoreEl = document.querySelector("#death-score");
+const respawnButtonEl = document.querySelector("#respawn-button");
 
 const camera = {
   x: WORLD.w / 2,
@@ -88,6 +94,14 @@ const audio = {
   lastFireAt: 0,
 };
 
+const touchInput = {
+  left: false,
+  right: false,
+  thrust: false,
+  fire: false,
+  stickPointerId: null,
+};
+
 let socket;
 let selfId = 0;
 let serverTick = 0;
@@ -97,6 +111,8 @@ let reconnectTimer = 0;
 let deathFlash = 0;
 let lastButtons = 0;
 let frameButtons = 0;
+let isDead = false;
+let suppressNextCloseReconnect = false;
 let tabSessionId = sessionStorage.getItem("arenaSid");
 if (!tabSessionId) {
   tabSessionId = crypto.randomUUID().replaceAll("-", "");
@@ -104,6 +120,7 @@ if (!tabSessionId) {
 }
 
 function connect() {
+  isDead = false;
   statusEl.textContent = "connecting";
   const proto = location.protocol === "https:" ? "wss:" : "ws:";
   const params = new URLSearchParams();
@@ -119,11 +136,24 @@ function connect() {
     if (!(event.data instanceof ArrayBuffer)) return;
     readPacket(event.data);
   });
-  socket.addEventListener("close", scheduleReconnect);
-  socket.addEventListener("error", scheduleReconnect);
+  socket.addEventListener("close", (event) => {
+    if (suppressNextCloseReconnect) {
+      suppressNextCloseReconnect = false;
+      return;
+    }
+    if (event.code === 4001) {
+      showDeathModal(Number(scoreEl.textContent) || 0);
+      return;
+    }
+    scheduleReconnect();
+  });
+  socket.addEventListener("error", () => {
+    if (!isDead) scheduleReconnect();
+  });
 }
 
 function scheduleReconnect() {
+  if (isDead) return;
   statusEl.textContent = "reconnecting";
   if (reconnectTimer) return;
   reconnectTimer = window.setTimeout(() => {
@@ -145,12 +175,14 @@ function readPacket(buffer) {
   }
   if (type === Packet.Death) {
     const deadId = view.getUint16(2, true);
+    const deadScore = view.getUint16(6, true);
     const dead = players.get(deadId) ?? renderPlayers.get(deadId);
     if (dead) spawnExplosion(dead.x, dead.y, dead.hue, deadId === selfId);
     if (deadId === selfId) {
       deathFlash = 1;
       camera.shake = Math.max(camera.shake, 26);
       playImpact(true);
+      showDeathModal(deadScore);
     } else {
       playImpact(false);
     }
@@ -236,7 +268,7 @@ function readPacket(buffer) {
 }
 
 function sendInput() {
-  if (!socket || socket.readyState !== WebSocket.OPEN) return;
+  if (isDead || !socket || socket.readyState !== WebSocket.OPEN) return;
   const buttons = currentButtons();
   const buffer = new ArrayBuffer(8);
   const view = new DataView(buffer);
@@ -252,12 +284,61 @@ function sendInput() {
 }
 
 function currentButtons() {
+  if (isDead) return 0;
   let buttons = 0;
-  if (keys.has("ArrowLeft") || keys.has("KeyA")) buttons |= Button.Left;
-  if (keys.has("ArrowRight") || keys.has("KeyD")) buttons |= Button.Right;
-  if (keys.has("ArrowUp") || keys.has("KeyW")) buttons |= Button.Thrust;
-  if (keys.has("Space") || keys.has("KeyJ")) buttons |= Button.Fire;
+  if (keys.has("ArrowLeft") || keys.has("KeyA") || touchInput.left) buttons |= Button.Left;
+  if (keys.has("ArrowRight") || keys.has("KeyD") || touchInput.right) buttons |= Button.Right;
+  if (keys.has("ArrowUp") || keys.has("KeyW") || touchInput.thrust) buttons |= Button.Thrust;
+  if (keys.has("Space") || keys.has("KeyJ") || touchInput.fire) buttons |= Button.Fire;
   return buttons;
+}
+
+function showDeathModal(score) {
+  if (isDead && !deathModalEl?.hidden) return;
+  isDead = true;
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = 0;
+  }
+  resetStick();
+  setFireButton(false);
+  statusEl.textContent = "dead";
+  scoreEl.textContent = String(score);
+  if (deathScoreEl) deathScoreEl.textContent = String(score);
+  if (deathModalEl) deathModalEl.hidden = false;
+}
+
+function respawn() {
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = 0;
+  }
+  try {
+    suppressNextCloseReconnect = Boolean(socket);
+    socket?.close(1000, "respawn");
+  } catch {
+    // Ignore stale sockets; the new session below is authoritative.
+  }
+  socket = null;
+  isDead = false;
+  deathFlash = 0;
+  selfId = 0;
+  inputSeq = 0;
+  lastButtons = 0;
+  players.clear();
+  bullets.clear();
+  renderPlayers.clear();
+  renderBullets.clear();
+  knownPlayerIds.clear();
+  knownBulletIds.clear();
+  leaderboardEl.replaceChildren();
+  shipEl.textContent = "--";
+  shipsEl.textContent = "0";
+  scoreEl.textContent = "0";
+  tabSessionId = crypto.randomUUID().replaceAll("-", "");
+  sessionStorage.setItem("arenaSid", tabSessionId);
+  if (deathModalEl) deathModalEl.hidden = true;
+  connect();
 }
 
 function renderLeaderboard() {
@@ -907,6 +988,35 @@ function resize() {
   }
 }
 
+function updateStick(event) {
+  if (!stickZoneEl || !stickKnobEl) return;
+  const rect = stickZoneEl.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  const max = Math.min(rect.width, rect.height) * 0.28;
+  const dx = clamp(event.clientX - cx, -max, max);
+  const dy = clamp(event.clientY - cy, -max, max);
+  const dead = max * 0.18;
+  touchInput.left = dx < -dead;
+  touchInput.right = dx > dead;
+  touchInput.thrust = dy < -dead || Math.hypot(dx, dy) > max * 0.72;
+  stickKnobEl.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+}
+
+function resetStick() {
+  touchInput.left = false;
+  touchInput.right = false;
+  touchInput.thrust = false;
+  touchInput.stickPointerId = null;
+  stickZoneEl?.classList.remove("is-active");
+  if (stickKnobEl) stickKnobEl.style.transform = "translate(-50%, -50%)";
+}
+
+function setFireButton(active) {
+  touchInput.fire = active;
+  fireButtonEl?.classList.toggle("is-active", active);
+}
+
 addEventListener("keydown", (event) => {
   if (["ArrowLeft", "ArrowRight", "ArrowUp", "Space"].includes(event.code)) {
     event.preventDefault();
@@ -924,6 +1034,45 @@ addEventListener("keyup", (event) => {
 });
 
 addEventListener("pointerdown", unlockAudio);
+
+respawnButtonEl?.addEventListener("click", respawn);
+
+stickZoneEl?.addEventListener("pointerdown", (event) => {
+  event.preventDefault();
+  unlockAudio();
+  touchInput.stickPointerId = event.pointerId;
+  stickZoneEl.setPointerCapture(event.pointerId);
+  stickZoneEl.classList.add("is-active");
+  updateStick(event);
+});
+
+stickZoneEl?.addEventListener("pointermove", (event) => {
+  if (event.pointerId !== touchInput.stickPointerId) return;
+  event.preventDefault();
+  updateStick(event);
+});
+
+for (const type of ["pointerup", "pointercancel", "lostpointercapture"]) {
+  stickZoneEl?.addEventListener(type, (event) => {
+    if ("pointerId" in event && event.pointerId !== touchInput.stickPointerId) return;
+    event.preventDefault();
+    resetStick();
+  });
+}
+
+fireButtonEl?.addEventListener("pointerdown", (event) => {
+  event.preventDefault();
+  unlockAudio();
+  fireButtonEl.setPointerCapture(event.pointerId);
+  setFireButton(true);
+});
+
+for (const type of ["pointerup", "pointercancel", "lostpointercapture"]) {
+  fireButtonEl?.addEventListener(type, (event) => {
+    event.preventDefault();
+    setFireButton(false);
+  });
+}
 
 setInterval(sendInput, 1000 / 30);
 connect();

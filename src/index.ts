@@ -15,7 +15,6 @@ import {
   hitTest,
   MS_PER_TICK,
   Player,
-  respawnPlayer,
   SNAPSHOT_RATE,
   spawnPlayer,
   stepBullet,
@@ -148,9 +147,6 @@ export class Arena extends DurableObject<Env> {
     this.updateBots();
 
     for (const player of this.players.values()) {
-      if (!player.alive && player.respawnTicks <= 0) {
-        respawnPlayer(player, player.id + this.tick);
-      }
       const bullet = stepPlayer(player);
       if (bullet) {
         bullet.id = this.nextBulletId++;
@@ -165,12 +161,12 @@ export class Arena extends DurableObject<Env> {
       let didHit = false;
       for (const player of this.players.values()) {
         if (!hitTest(bullet, player, prevX, prevY)) continue;
-        player.alive = false;
-        player.respawnTicks = TICK_RATE;
-        player.buttons = 0;
+        const deadId = player.id;
+        const deadScore = player.score;
         awardKill(this.players.get(bullet.ownerId));
         this.bullets.delete(bulletId);
-        this.broadcast(writeDeath(player.id, bullet.ownerId, player.score));
+        this.broadcast(writeDeath(deadId, bullet.ownerId, deadScore));
+        this.eliminatePlayer(deadId);
         didHit = true;
         break;
       }
@@ -217,6 +213,24 @@ export class Arena extends DurableObject<Env> {
       this.botPlayerIds.clear();
     }
     if (this.players.size === 0) this.stopLoop();
+  }
+
+  private eliminatePlayer(playerId: number) {
+    this.players.delete(playerId);
+    this.botPlayerIds.delete(playerId);
+    for (const [sessionId, sessionPlayerId] of this.sessionPlayers) {
+      if (sessionPlayerId === playerId) this.sessionPlayers.delete(sessionId);
+    }
+    for (const [bulletId, bullet] of this.bullets) {
+      if (bullet.ownerId === playerId) this.bullets.delete(bulletId);
+    }
+    for (const ws of this.ctx.getWebSockets()) {
+      const attachment = safeAttachment(ws);
+      const socketPlayerId = this.socketPlayers.get(ws) ?? attachment?.playerId;
+      if (socketPlayerId === playerId && ws.readyState === WebSocket.OPEN) {
+        ws.close(4001, "dead");
+      }
+    }
   }
 
   private ensureBots(targetCount: number) {
