@@ -1,7 +1,7 @@
 use ratatui::Frame;
 use ratatui::style::{Color, Style};
 
-use crate::game::GameState;
+use crate::game::{GameState, angle_to_direction};
 
 const OUTSIDE_COLOR: Color = Color::Rgb(30, 20, 10);
 const SKIN_COLOR: Color = Color::Rgb(240, 200, 160);
@@ -17,40 +17,11 @@ const SHADOW_COLOR: Color = Color::Rgb(20, 35, 10);
 const FENCE_POST: Color = Color::Rgb(90, 60, 30);
 const FENCE_RAIL: Color = Color::Rgb(110, 75, 40);
 const FENCE_TOP: Color = Color::Rgb(130, 90, 50);
+const DEAD_COLOR: Color = Color::Rgb(80, 80, 80);
 
-pub struct Viewport {
-    pub left: f64,
-    pub top: f64,
-    pub width: usize,
-    pub height: usize,
-}
+// World units per pixel — controls zoom level
+const SCALE: f64 = 12.0;
 
-pub fn compute_viewport(
-    player_pos: (f64, f64),
-    world_width: f64,
-    world_height: f64,
-    pixel_width: usize,
-    pixel_height: usize,
-) -> Viewport {
-    let half_w = pixel_width as f64 / 2.0;
-    let half_h = pixel_height as f64 / 2.0;
-
-    let left = (player_pos.0 - half_w)
-        .max(0.0)
-        .min((world_width - pixel_width as f64).max(0.0));
-    let top = (player_pos.1 - half_h)
-        .max(0.0)
-        .min((world_height - pixel_height as f64).max(0.0));
-
-    Viewport {
-        left,
-        top,
-        width: pixel_width,
-        height: pixel_height,
-    }
-}
-
-// Simple deterministic hash for grass variation
 fn pixel_hash(x: i64, y: i64) -> u32 {
     let mut h = (x.wrapping_mul(374761393) ^ y.wrapping_mul(668265263)) as u32;
     h = h.wrapping_mul(1274126177);
@@ -61,64 +32,54 @@ fn pixel_hash(x: i64, y: i64) -> u32 {
 fn grass_color(wx: i64, wy: i64) -> Color {
     let h = pixel_hash(wx, wy);
     let variant = h % 100;
-
-    // Base grass with subtle variation
     let base_g: u8 = match variant {
-        0..=2 => 90,    // dark patch
-        3..=8 => 70,    // slightly dark
-        90..=94 => 55,  // little flower/clover
-        95..=97 => 50,  // dandelion yellow tint
-        _ => 60,        // normal grass
+        0..=2 => 90,
+        3..=8 => 70,
+        90..=94 => 55,
+        95..=97 => 50,
+        _ => 60,
     };
-
     let r = match variant {
-        90..=94 => 45,  // clover - slightly different
-        95..=97 => 70,  // dandelion
+        90..=94 => 45,
+        95..=97 => 70,
         _ => 25 + (h % 15) as u8,
     };
-
     let g = base_g + (h % 20) as u8;
-
     let b = match variant {
         90..=94 => 30,
         95..=97 => 15,
         _ => 10 + (h % 10) as u8,
     };
-
     Color::Rgb(r, g, b)
 }
 
-fn world_pixel_color(wx: i64, wy: i64, world_width: f64, world_height: f64) -> Color {
-    let w = world_width as i64;
-    let h = world_height as i64;
-
-    if wx < 0 || wx >= w || wy < 0 || wy >= h {
+fn world_pixel_color(wx: i64, wy: i64, world_w: i64, world_h: i64) -> Color {
+    if wx < 0 || wx >= world_w || wy < 0 || wy >= world_h {
         return OUTSIDE_COLOR;
     }
 
-    // Fence: 3 pixels thick border
-    let from_left = wx;
-    let from_right = w - 1 - wx;
-    let from_top = wy;
-    let from_bottom = h - 1 - wy;
-    let dist_to_edge = from_left.min(from_right).min(from_top).min(from_bottom);
+    let fence_w = (world_w / 200).max(1);
+    let post_spacing = (world_w / 25).max(8);
 
-    if dist_to_edge == 0 {
-        // Fence posts every 8 cells, rail between
-        if wx % 8 == 0 || wy % 8 == 0 {
+    let from_left = wx;
+    let from_right = world_w - 1 - wx;
+    let from_top = wy;
+    let from_bottom = world_h - 1 - wy;
+    let dist = from_left.min(from_right).min(from_top).min(from_bottom);
+
+    if dist < fence_w {
+        if wx % post_spacing < fence_w || wy % post_spacing < fence_w {
             return FENCE_POST;
         }
         return FENCE_RAIL;
     }
-    if dist_to_edge == 1 {
-        // Top rail of fence
-        if wx % 8 == 0 || wy % 8 == 0 {
+    if dist < fence_w * 2 {
+        if wx % post_spacing < fence_w || wy % post_spacing < fence_w {
             return FENCE_TOP;
         }
         return FENCE_RAIL;
     }
-    if dist_to_edge == 2 {
-        // Inner fence edge - slightly worn grass
+    if dist < fence_w * 3 {
         return Color::Rgb(35, 55, 15);
     }
 
@@ -131,147 +92,59 @@ fn set_pixel(pixels: &mut [Color], w: usize, h: usize, x: i32, y: i32, color: Co
     }
 }
 
-// Given a 2x2 block of colors, pick the best quadrant char + fg/bg.
-// Each cell has 4 sub-pixels: top-left, top-right, bottom-left, bottom-right.
-fn quadrant_cell(tl: Color, tr: Color, bl: Color, br: Color) -> (char, Color, Color) {
-    let colors = [tl, tr, bl, br];
-
-    // Find the two most common colors (or just pick fg/bg)
-    let bg = most_common_color(&colors);
-    let fg = most_different_color(&colors, bg);
-
-    // Build quadrant mask: 1 = fg, 0 = bg
-    let mut mask = 0u8;
-    if closer_to(tl, fg, bg) { mask |= 0b0001; } // top-left
-    if closer_to(tr, fg, bg) { mask |= 0b0010; } // top-right
-    if closer_to(bl, fg, bg) { mask |= 0b0100; } // bottom-left
-    if closer_to(br, fg, bg) { mask |= 0b1000; } // bottom-right
-
-    let ch = QUADRANT_CHARS[mask as usize];
-    (ch, fg, bg)
+fn hue_to_shirt_color(hue: u16) -> Color {
+    let h = (hue % 360) as f64;
+    let (r, g, b) = hsl_to_rgb(h, 0.7, 0.45);
+    Color::Rgb(r, g, b)
 }
 
-const QUADRANT_CHARS: [char; 16] = [
-    ' ', '▘', '▝', '▀',
-    '▖', '▌', '▞', '▛',
-    '▗', '▚', '▐', '▜',
-    '▄', '▙', '▟', '█',
-];
-
-fn color_eq(a: Color, b: Color) -> bool {
-    match (a, b) {
-        (Color::Rgb(r1, g1, b1), Color::Rgb(r2, g2, b2)) => r1 == r2 && g1 == g2 && b1 == b2,
-        _ => false,
-    }
+fn hsl_to_rgb(h: f64, s: f64, l: f64) -> (u8, u8, u8) {
+    let c = (1.0 - (2.0 * l - 1.0).abs()) * s;
+    let x = c * (1.0 - ((h / 60.0) % 2.0 - 1.0).abs());
+    let m = l - c / 2.0;
+    let (r1, g1, b1) = match h as u32 {
+        0..=59 => (c, x, 0.0),
+        60..=119 => (x, c, 0.0),
+        120..=179 => (0.0, c, x),
+        180..=239 => (0.0, x, c),
+        240..=299 => (x, 0.0, c),
+        _ => (c, 0.0, x),
+    };
+    (
+        ((r1 + m) * 255.0) as u8,
+        ((g1 + m) * 255.0) as u8,
+        ((b1 + m) * 255.0) as u8,
+    )
 }
 
-fn most_common_color(colors: &[Color; 4]) -> Color {
-    let mut best = colors[0];
-    let mut best_count = 0;
-    for &c in colors {
-        let count = colors.iter().filter(|&&x| color_eq(x, c)).count();
-        if count > best_count {
-            best_count = count;
-            best = c;
-        }
-    }
-    best
-}
+fn draw_player_sprite(
+    pixels: &mut [Color], w: usize, h: usize,
+    px: i32, py: i32, angle: u16, alive: bool, hue: u16,
+) {
+    let (ndx, ndy) = angle_to_direction(angle);
+    let cos_a = ndx;
+    let sin_a = ndy;
 
-fn most_different_color(colors: &[Color; 4], bg: Color) -> Color {
-    for &c in colors {
-        if !color_eq(c, bg) {
-            return c;
-        }
-    }
-    bg
-}
+    let shirt = if alive { hue_to_shirt_color(hue) } else { DEAD_COLOR };
+    let skin = if alive { SKIN_COLOR } else { Color::Rgb(140, 140, 140) };
+    let hat = if alive { HAT_COLOR } else { Color::Rgb(100, 100, 100) };
 
-fn closer_to(c: Color, fg: Color, bg: Color) -> bool {
-    if color_eq(c, fg) { return true; }
-    if color_eq(c, bg) { return false; }
-    color_dist(c, fg) < color_dist(c, bg)
-}
-
-fn color_dist(a: Color, b: Color) -> i32 {
-    match (a, b) {
-        (Color::Rgb(r1, g1, b1), Color::Rgb(r2, g2, b2)) => {
-            let dr = r1 as i32 - r2 as i32;
-            let dg = g1 as i32 - g2 as i32;
-            let db = b1 as i32 - b2 as i32;
-            dr * dr + dg * dg + db * db
-        }
-        _ => 0,
-    }
-}
-
-pub fn draw(frame: &mut Frame, state: &GameState) {
-    let area = frame.area();
-    let pixel_w = area.width as usize;
-    let pixel_h = area.height as usize * 2;
-    let vp = compute_viewport(
-        state.player.position,
-        state.world_width,
-        state.world_height,
-        pixel_w,
-        pixel_h,
-    );
-
-    let w = vp.width;
-    let h = vp.height;
-    let mut pixels = vec![OUTSIDE_COLOR; w * h];
-
-    // Draw world background
-    for py in 0..h {
-        for px in 0..w {
-            let wx = (vp.left + px as f64).floor() as i64;
-            let wy = (vp.top + py as f64).floor() as i64;
-            pixels[py * w + px] = world_pixel_color(wx, wy, state.world_width, state.world_height);
-        }
-    }
-
-    // Draw pokeball projectiles with arc
-    for projectile in &state.projectiles {
-        let gx = (projectile.position.0 - vp.left).floor() as i32;
-        let gy = (projectile.position.1 - vp.top).floor() as i32;
-        let arc_y = gy + projectile.arc_offset().floor() as i32;
-
-        // Shadow on ground
-        set_pixel(&mut pixels, w, h, gx, gy, SHADOW_COLOR);
-        set_pixel(&mut pixels, w, h, gx + 1, gy, SHADOW_COLOR);
-
-        // Pokeball: 3 tall x 3 wide — red top, band, white bottom
-        for dx in 0..3i32 {
-            set_pixel(&mut pixels, w, h, gx - 1 + dx, arc_y - 1, POKEBALL_RED);
-            set_pixel(&mut pixels, w, h, gx - 1 + dx, arc_y, POKEBALL_BAND);
-            set_pixel(&mut pixels, w, h, gx - 1 + dx, arc_y + 1, POKEBALL_WHITE);
-        }
-    }
-
-    // Draw player as a little person sprite
-    // Sprite is defined facing right, then rotated by direction
-    let px = (state.player.position.0 - vp.left).floor() as i32;
-    let py = (state.player.position.1 - vp.top).floor() as i32;
-    let (ndx, ndy) = state.player.direction;
-    let angle = ndy.atan2(ndx);
-
-    // Sprite pixels: (dx, dy, color) relative to center, facing right
     let sprite: &[(f64, f64, Color)] = &[
         // Hat
-        (0.0, -4.0, HAT_COLOR), (1.0, -4.0, HAT_COLOR), (2.0, -4.0, HAT_COLOR),
-        (-1.0, -3.0, HAT_COLOR), (0.0, -3.0, HAT_COLOR), (1.0, -3.0, HAT_COLOR), (2.0, -3.0, HAT_COLOR),
+        (0.0, -4.0, hat), (1.0, -4.0, hat), (2.0, -4.0, hat),
+        (-1.0, -3.0, hat), (0.0, -3.0, hat), (1.0, -3.0, hat), (2.0, -3.0, hat),
         // Head
-        (-1.0, -2.0, SKIN_COLOR), (0.0, -2.0, SKIN_COLOR), (1.0, -2.0, SKIN_COLOR),
-        (-1.0, -1.0, SKIN_COLOR), (0.0, -1.0, SKIN_COLOR), (1.0, -1.0, SKIN_COLOR),
-        // Eyes
+        (-1.0, -2.0, skin), (0.0, -2.0, skin), (1.0, -2.0, skin),
+        (-1.0, -1.0, skin), (0.0, -1.0, skin), (1.0, -1.0, skin),
+        // Eye
         (1.0, -2.0, HAIR_COLOR),
         // Body
-        (-1.0, 0.0, SHIRT_COLOR), (0.0, 0.0, SHIRT_COLOR), (1.0, 0.0, SHIRT_COLOR),
-        (-1.0, 1.0, SHIRT_COLOR), (0.0, 1.0, SHIRT_COLOR), (1.0, 1.0, SHIRT_COLOR),
-        (0.0, 2.0, SHIRT_COLOR),
+        (-1.0, 0.0, shirt), (0.0, 0.0, shirt), (1.0, 0.0, shirt),
+        (-1.0, 1.0, shirt), (0.0, 1.0, shirt), (1.0, 1.0, shirt),
+        (0.0, 2.0, shirt),
         // Arms
-        (-2.0, 0.0, SKIN_COLOR), (2.0, 0.0, SKIN_COLOR),
-        (-2.0, 1.0, SKIN_COLOR), (2.0, 1.0, SKIN_COLOR),
+        (-2.0, 0.0, skin), (2.0, 0.0, skin),
+        (-2.0, 1.0, skin), (2.0, 1.0, skin),
         // Legs
         (-1.0, 2.0, PANTS_COLOR), (1.0, 2.0, PANTS_COLOR),
         (-1.0, 3.0, PANTS_COLOR), (1.0, 3.0, PANTS_COLOR),
@@ -279,15 +152,82 @@ pub fn draw(frame: &mut Frame, state: &GameState) {
         (-1.0, 4.0, SHOE_COLOR), (1.0, 4.0, SHOE_COLOR),
     ];
 
-    let cos_a = angle.cos();
-    let sin_a = angle.sin();
     for &(sdx, sdy, color) in sprite {
         let rx = (sdx * cos_a - sdy * sin_a).round() as i32;
         let ry = (sdx * sin_a + sdy * cos_a).round() as i32;
-        set_pixel(&mut pixels, w, h, px + rx, py + ry, color);
+        set_pixel(pixels, w, h, px + rx, py + ry, color);
+    }
+}
+
+pub fn draw(frame: &mut Frame, state: &GameState) {
+    let area = frame.area();
+    let pixel_w = area.width as usize;
+    let pixel_h = area.height as usize * 2;
+
+    // Find camera center — follow self player, or center of world
+    let (cam_x, cam_y) = if let Some(me) = state.self_player() {
+        (me.x as f64, me.y as f64)
+    } else {
+        (state.world_width as f64 / 2.0, state.world_height as f64 / 2.0)
+    };
+
+    let vp_left = cam_x - (pixel_w as f64 / 2.0) * SCALE;
+    let vp_top = cam_y - (pixel_h as f64 / 2.0) * SCALE;
+
+    let w = pixel_w;
+    let h = pixel_h;
+    let world_w = state.world_width as i64;
+    let world_h = state.world_height as i64;
+
+    let mut pixels = vec![OUTSIDE_COLOR; w * h];
+
+    // Draw world background
+    for py in 0..h {
+        for px in 0..w {
+            let wx = (vp_left + px as f64 * SCALE).floor() as i64;
+            let wy = (vp_top + py as f64 * SCALE).floor() as i64;
+            pixels[py * w + px] = world_pixel_color(wx, wy, world_w, world_h);
+        }
     }
 
-    // Render pixel pairs as half-block characters (1 wide, 2 tall per cell)
+    // Draw bullets as pokeballs
+    for bullet in &state.bullets {
+        let sx = ((bullet.x as f64 - vp_left) / SCALE).floor() as i32;
+        let sy = ((bullet.y as f64 - vp_top) / SCALE).floor() as i32;
+
+        // Shadow
+        set_pixel(&mut pixels, w, h, sx, sy, SHADOW_COLOR);
+        set_pixel(&mut pixels, w, h, sx + 1, sy, SHADOW_COLOR);
+
+        // Simple arc based on remaining TTL (higher TTL = just fired = rising)
+        let max_ttl = 42.0; // ~1.4 seconds * 30 ticks
+        let progress = 1.0 - (bullet.ttl as f64 / max_ttl).clamp(0.0, 1.0);
+        let arc_offset = (-4.0 * 6.0 * progress * (1.0 - progress)).floor() as i32;
+        let arc_y = sy + arc_offset;
+
+        for dx in 0..3i32 {
+            set_pixel(&mut pixels, w, h, sx - 1 + dx, arc_y - 1, POKEBALL_RED);
+            set_pixel(&mut pixels, w, h, sx - 1 + dx, arc_y, POKEBALL_BAND);
+            set_pixel(&mut pixels, w, h, sx - 1 + dx, arc_y + 1, POKEBALL_WHITE);
+        }
+    }
+
+    // Draw players
+    for player in &state.players {
+        let sx = ((player.x as f64 - vp_left) / SCALE).floor() as i32;
+        let sy = ((player.y as f64 - vp_top) / SCALE).floor() as i32;
+
+        if sx < -20 || sx >= w as i32 + 20 || sy < -20 || sy >= h as i32 + 20 {
+            continue;
+        }
+
+        draw_player_sprite(
+            &mut pixels, w, h,
+            sx, sy, player.angle, player.alive, player.hue,
+        );
+    }
+
+    // Render pixel pairs as half-block characters
     let buf = frame.buffer_mut();
     for row in 0..area.height {
         let top_y = row as usize * 2;

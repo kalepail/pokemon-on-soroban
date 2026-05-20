@@ -2,7 +2,7 @@ use crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use std::collections::HashSet;
 use std::time::Duration;
 
-use crate::game::Action;
+use crate::protocol;
 
 pub struct KeyState {
     pub held: HashSet<KeyCode>,
@@ -19,11 +19,9 @@ impl KeyState {
 
     pub fn update(&mut self, timeout: Duration) {
         self.just_pressed.clear();
-        // Wait for first event up to timeout
         if !event::poll(timeout).unwrap_or(false) {
             return;
         }
-        // Drain all available events
         while event::poll(Duration::ZERO).unwrap_or(false) {
             if let Ok(Event::Key(key)) = event::read() {
                 match key.kind {
@@ -41,27 +39,24 @@ impl KeyState {
         }
     }
 
-    pub fn actions(&self) -> Vec<Action> {
-        let mut actions = Vec::new();
-        if self.held.contains(&KeyCode::Char('q')) || self.held.contains(&KeyCode::Esc) {
-            actions.push(Action::Quit);
-            return actions;
-        }
-        if self.held.contains(&KeyCode::Up) {
-            actions.push(Action::Forward);
-        }
-        if self.held.contains(&KeyCode::Down) {
-            actions.push(Action::Backward);
-        }
+    pub fn wants_quit(&self) -> bool {
+        self.held.contains(&KeyCode::Char('q')) || self.held.contains(&KeyCode::Esc)
+    }
+
+    pub fn buttons(&self) -> u8 {
+        let mut b = 0u8;
         if self.held.contains(&KeyCode::Left) {
-            actions.push(Action::TurnLeft);
+            b |= protocol::BUTTON_LEFT;
         }
         if self.held.contains(&KeyCode::Right) {
-            actions.push(Action::TurnRight);
+            b |= protocol::BUTTON_RIGHT;
+        }
+        if self.held.contains(&KeyCode::Up) {
+            b |= protocol::BUTTON_THRUST;
         }
         if self.just_pressed.contains(&KeyCode::Char(' ')) {
-            actions.push(Action::Shoot);
+            b |= protocol::BUTTON_FIRE;
         }
-        actions
+        b
     }
 }
