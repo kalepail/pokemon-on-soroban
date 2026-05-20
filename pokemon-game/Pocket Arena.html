@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pocket Arena</title>
+<link rel="stylesheet" href="sds_tokens.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-deep: #06070b;
+    --bg-cabinet: #16121d;
+    --bezel: #221a2e;
+    --bezel-light: #3a2c4e;
+    --hud-bg: #0b0a14;
+    --hud-fg: #fde26a;
+    --hud-dim: #8f7ac2;
+    --accent: var(--sds-clr-lilac-09, #6E56CF);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%;
+    background:
+      radial-gradient(ellipse at 50% 30%, #1a142a 0%, #06070b 70%),
+      var(--bg-deep);
+    color: #e8d8ff;
+    font-family: 'Inter', sans-serif;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  .stage {
+    position: fixed; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px;
+  }
+  .cabinet {
+    /* The handheld console body */
+    position: relative;
+    display: grid;
+    grid-template-rows: auto auto auto;
+    gap: 10px;
+    background:
+      radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0.12) 0%, transparent 40%),
+      linear-gradient(170deg, #6c5dc4 0%, #4f3fa6 35%, #38298a 70%, #1f1660 100%);
+    border-radius: 24px 24px 36px 36px;
+    padding: 30px 38px 22px;
+    box-shadow:
+      inset 0 2px 0 rgba(255,255,255,0.28),
+      inset 0 -3px 8px rgba(0,0,0,0.45),
+      inset 0 0 0 1px rgba(255,255,255,0.06),
+      0 50px 90px rgba(0,0,0,0.75),
+      0 12px 36px rgba(70,40,200,0.25);
+    max-width: min(1080px, 94vw, 112vh);
+    width: 100%;
+  }
+  /* shoulder triggers stick up from the top edge */
+  .trigger {
+    position: absolute;
+    top: -18px;
+    width: 110px;
+    height: 22px;
+    background: linear-gradient(180deg, #38298a 0%, #2a1f70 100%);
+    border-radius: 16px 16px 4px 4px;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.2),
+      inset 0 -2px 4px rgba(0,0,0,0.4),
+      0 2px 0 rgba(0,0,0,0.4);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 2px;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 9px;
+    color: rgba(255,255,255,0.6);
+    letter-spacing: 0.1em;
+  }
+  .trigger-l { left: 50px; }
+  .trigger-r { right: 50px; }
+  /* small brand chip top center */
+  .brand-chip {
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
+    letter-spacing: 0.16em;
+    color: rgba(255,255,255,0.55);
+    text-shadow: 0 1px 0 rgba(0,0,0,0.4);
+  }
+
+  /* Screen housing — sunken dark recess */
+  .screen-housing {
+    background: linear-gradient(180deg, #1a1228 0%, #0c0716 100%);
+    border-radius: 12px 12px 26px 26px;
+    padding: 16px 22px 18px;
+    box-shadow:
+      inset 0 3px 6px rgba(0,0,0,0.7),
+      inset 0 -1px 0 rgba(255,255,255,0.06),
+      0 1px 0 rgba(255,255,255,0.08);
+    position: relative;
+  }
+  .screen-housing::before {
+    /* subtle inner bezel highlight */
+    content: '';
+    position: absolute;
+    inset: 14px 18px 14px 18px;
+    border-radius: 8px;
+    pointer-events: none;
+    box-shadow: 0 0 0 1px rgba(110,86,207,0.18);
+  }
+
+  /* The label strip below the screen, doubles as HUD */
+  .label-strip {
+    margin-top: 12px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 16px;
+    padding: 0 4px;
+    font-family: 'VT323', monospace;
+  }
+  .label-strip .led-row {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 15px;
+    color: rgba(255,255,255,0.7);
+    letter-spacing: 0.06em;
+  }
+  .led {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%, #ff9494, #d23c1a 70%, #4a0a08);
+    box-shadow: 0 0 6px rgba(255,80,40,0.7), inset 0 1px 0 rgba(255,255,255,0.3);
+  }
+  .led.battery {
+    background: radial-gradient(circle at 30% 30%, #b4ff94, #5aa838 70%, #1a4a08);
+    box-shadow: 0 0 6px rgba(120,200,80,0.7), inset 0 1px 0 rgba(255,255,255,0.3);
+  }
+  .label-strip .brand-engraved {
+    text-align: center;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 12px;
+    color: #fde26a;
+    text-shadow: 1px 1px 0 rgba(0,0,0,0.5);
+    letter-spacing: 0.06em;
+  }
+  .label-strip .brand-engraved .sub {
+    display: block;
+    font-family: 'VT323', monospace;
+    font-size: 14px;
+    font-weight: normal;
+    color: rgba(255,255,255,0.55);
+    letter-spacing: 0.1em;
+    margin-top: 3px;
+  }
+  .label-strip .hud-cluster {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 15px;
+    color: rgba(255,255,255,0.85);
+    letter-spacing: 0.06em;
+  }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 3px 9px;
+    background: rgba(0,0,0,0.35);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 100px;
+    font-family: 'VT323', monospace;
+    font-size: 16px;
+    color: #fde26a;
+    white-space: nowrap;
+    line-height: 1;
+  }
+  .progress {
+    width: 90px; height: 6px;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 100px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #74c14a, #fde26a);
+    width: 0%;
+    transition: width 0.3s cubic-bezier(.2,.8,.2,1);
+    box-shadow: 0 0 6px rgba(253,226,106,0.5);
+  }
+  .lbl-small {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
+    color: rgba(255,255,255,0.55);
+    letter-spacing: 0.08em;
+  }
+
+  /* Controls area below label */
+  .device-controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    align-items: center;
+    gap: 16px;
+    padding: 0 6px;
+    margin-top: 2px;
+  }
+
+  /* D-pad cross */
+  .dpad {
+    position: relative;
+    width: 108px;
+    height: 108px;
+    justify-self: start;
+  }
+  .dpad::before, .dpad::after {
+    content: '';
+    position: absolute;
+    background:
+      linear-gradient(180deg, #1f1830 0%, #0c0816 100%);
+    box-shadow:
+      inset 0 2px 0 rgba(255,255,255,0.12),
+      inset 0 -2px 0 rgba(0,0,0,0.5),
+      0 2px 0 rgba(0,0,0,0.5);
+    border-radius: 4px;
+  }
+  .dpad::before { top: 34%; left: 0; right: 0; height: 32%; }
+  .dpad::after { left: 34%; top: 0; bottom: 0; width: 32%; }
+  .dpad-center {
+    position: absolute;
+    top: 40%; left: 40%;
+    width: 20%; height: 20%;
+    background: #060410;
+    border-radius: 50%;
+    box-shadow: inset 0 2px 3px rgba(0,0,0,0.6);
+    z-index: 3;
+  }
+  .dpad-btn {
+    position: absolute;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    z-index: 2;
+    padding: 0;
+  }
+  .dpad-btn:focus { outline: none; }
+  .dpad-btn::after {
+    content: '';
+    position: absolute;
+    inset: 8px;
+    border-style: solid;
+    border-color: rgba(255,255,255,0.35);
+    border-width: 0;
+  }
+  .dpad-up { top: 0; left: 34%; width: 32%; height: 34%; }
+  .dpad-up::after { border-bottom: 7px solid rgba(255,255,255,0.45); border-left: 6px solid transparent; border-right: 6px solid transparent; top: 12px; left: 50%; transform: translateX(-50%); width: 0; height: 0; inset: auto; border-top: 0; }
+  .dpad-down { bottom: 0; left: 34%; width: 32%; height: 34%; }
+  .dpad-down::after { border-top: 7px solid rgba(255,255,255,0.45); border-left: 6px solid transparent; border-right: 6px solid transparent; bottom: 12px; left: 50%; transform: translateX(-50%); width: 0; height: 0; inset: auto; border-bottom: 0; }
+  .dpad-left { top: 34%; left: 0; width: 34%; height: 32%; }
+  .dpad-left::after { border-right: 7px solid rgba(255,255,255,0.45); border-top: 6px solid transparent; border-bottom: 6px solid transparent; left: 12px; top: 50%; transform: translateY(-50%); width: 0; height: 0; inset: auto; border-left: 0; }
+  .dpad-right { top: 34%; right: 0; width: 34%; height: 32%; }
+  .dpad-right::after { border-left: 7px solid rgba(255,255,255,0.45); border-top: 6px solid transparent; border-bottom: 6px solid transparent; right: 12px; top: 50%; transform: translateY(-50%); width: 0; height: 0; inset: auto; border-right: 0; }
+  .dpad-btn.active::after,
+  .dpad-btn:active::after { filter: drop-shadow(0 0 4px #fde26a); }
+  .dpad-btn.active ~ .dpad-center,
+  .dpad-btn:active ~ .dpad-center { /* nothing — kept for spec */ }
+
+  /* Center cluster: Start / Select / speaker */
+  .center-cluster {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    justify-self: center;
+  }
+  .start-select {
+    display: flex;
+    gap: 22px;
+    transform: rotate(-24deg);
+  }
+  .ss-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .ss-btn {
+    width: 56px; height: 14px;
+    border-radius: 100px;
+    background: linear-gradient(180deg, #2a2240 0%, #100a20 100%);
+    border: none;
+    cursor: pointer;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.15),
+      inset 0 -1px 0 rgba(0,0,0,0.5),
+      0 2px 0 rgba(0,0,0,0.4);
+  }
+  .ss-btn:active { transform: translateY(2px); box-shadow: inset 0 -1px 0 rgba(0,0,0,0.5), 0 0 0 rgba(0,0,0,0.4); }
+  .ss-label {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
+    color: rgba(255,255,255,0.65);
+    letter-spacing: 0.1em;
+  }
+  .speaker {
+    display: flex; gap: 7px;
+    transform: rotate(-24deg);
+    padding: 0 6px;
+  }
+  .speaker-stripe {
+    width: 4px;
+    height: 28px;
+    border-radius: 4px;
+    background:
+      linear-gradient(180deg, #100a20 0%, #060410 100%);
+    box-shadow:
+      inset 0 1px 1px rgba(0,0,0,0.7),
+      0 1px 0 rgba(255,255,255,0.06);
+  }
+
+  /* A/B buttons, angled */
+  .ab-pad {
+    display: flex;
+    gap: 22px;
+    align-items: center;
+    transform: rotate(-24deg);
+    justify-self: end;
+    padding-right: 8px;
+  }
+  .ab-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .ab-btn {
+    width: 50px; height: 50px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    background:
+      radial-gradient(circle at 32% 28%, #ffe0e0 0%, rgba(255,255,255,0) 18%),
+      radial-gradient(circle at 70% 70%, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0) 35%),
+      linear-gradient(180deg, #e2552a 0%, #a32418 60%, #6c0e08 100%);
+    box-shadow:
+      inset 0 -3px 5px rgba(0,0,0,0.45),
+      inset 0 2px 2px rgba(255,255,255,0.3),
+      0 5px 0 rgba(0,0,0,0.4),
+      0 8px 16px rgba(0,0,0,0.45);
+    color: rgba(255,255,255,0.55);
+    font-family: 'Press Start 2P', monospace;
+    font-size: 11px;
+    text-shadow: 0 1px 1px rgba(0,0,0,0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.06s, box-shadow 0.06s;
+  }
+  .ab-btn.b {
+    background:
+      radial-gradient(circle at 32% 28%, #ffd8e8 0%, rgba(255,255,255,0) 18%),
+      radial-gradient(circle at 70% 70%, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0) 35%),
+      linear-gradient(180deg, #d24a8a 0%, #a3246a 60%, #5a0e3a 100%);
+  }
+  .ab-btn:hover { filter: brightness(1.06); }
+  .ab-btn:active,
+  .ab-btn.active {
+    transform: translateY(3px);
+    box-shadow:
+      inset 0 -1px 2px rgba(0,0,0,0.5),
+      0 2px 0 rgba(0,0,0,0.4),
+      0 4px 8px rgba(0,0,0,0.35);
+  }
+  .ab-label {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 8px;
+    color: rgba(255,255,255,0.7);
+    letter-spacing: 0.1em;
+  }
+
+  /* Hint row at very bottom of device */
+  .hint-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: 'VT323', monospace;
+    color: rgba(255,255,255,0.45);
+    font-size: 14px;
+    letter-spacing: 0.04em;
+    padding: 0 4px;
+    gap: 12px;
+  }
+  .hint-row > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .hint-row .reset-btn {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
+    background: transparent;
+    color: rgba(255,255,255,0.55);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 3px;
+    padding: 5px 8px;
+    cursor: pointer;
+    letter-spacing: 0.1em;
+  }
+  .hint-row .reset-btn:hover { color: #fde26a; border-color: #fde26a; }
+
+  /* Texture noise for plastic feel */
+  .cabinet::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background-image:
+      radial-gradient(circle at 8% 12%, rgba(255,255,255,0.05) 0%, transparent 2%),
+      radial-gradient(circle at 92% 18%, rgba(255,255,255,0.04) 0%, transparent 2%),
+      radial-gradient(circle at 25% 88%, rgba(255,255,255,0.04) 0%, transparent 2%),
+      radial-gradient(circle at 78% 82%, rgba(255,255,255,0.04) 0%, transparent 2%);
+    opacity: 0.4;
+  }
+
+  .screen-wrap {
+    position: relative;
+    border-radius: 6px;
+    overflow: hidden;
+    background: #000;
+    box-shadow:
+      inset 0 0 0 2px #1a1228,
+      inset 0 0 0 3px rgba(110, 86, 207, 0.18),
+      inset 0 0 50px rgba(110, 86, 207, 0.18),
+      0 4px 12px rgba(0,0,0,0.4);
+    aspect-ratio: 16 / 9;
+    width: 100%;
+  }
+  canvas#game {
+    width: 100%; height: 100%;
+    display: block;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    background: #000;
+    cursor: crosshair;
+  }
+  .scanlines {
+    position: absolute; inset: 0;
+    pointer-events: none;
+    background-image: repeating-linear-gradient(
+      to bottom,
+      rgba(0,0,0,0) 0px,
+      rgba(0,0,0,0) 2px,
+      rgba(0,0,0,0.22) 3px,
+      rgba(0,0,0,0) 4px
+    );
+    mix-blend-mode: multiply;
+    opacity: 0.8;
+  }
+  .vignette {
+    position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.55) 100%);
+  }
+  .overlay {
+    position: absolute; inset: 0;
+    display: none;
+    align-items: center; justify-content: center;
+    flex-direction: column; gap: 20px;
+    background: rgba(11, 10, 20, 0.78);
+    backdrop-filter: blur(2px);
+    color: #fde26a;
+    z-index: 5;
+    pointer-events: none;
+  }
+  .overlay.show { display: flex; pointer-events: auto; }
+  .overlay-title {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 28px;
+    color: #fde26a;
+    text-shadow: 3px 3px 0 #a32418, 5px 5px 0 rgba(0,0,0,0.7);
+    text-align: center;
+    line-height: 1.4;
+    animation: pop 0.4s cubic-bezier(.34,1.56,.64,1);
+  }
+  @keyframes pop {
+    from { transform: scale(0.6) rotate(-4deg); opacity: 0; }
+    to   { transform: scale(1) rotate(0); opacity: 1; }
+  }
+  .overlay-sub {
+    font-family: 'VT323', monospace;
+    font-size: 28px;
+    color: #ffffff;
+    text-align: center;
+  }
+  .overlay-btn {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 11px;
+    padding: 14px 22px;
+    background: #6E56CF;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    box-shadow: 0 4px 0 #3e2a90, 0 6px 12px rgba(0,0,0,0.5);
+    transition: transform 0.08s, box-shadow 0.08s;
+    letter-spacing: 0.06em;
+  }
+  .overlay-btn:hover { background: #8a72e0; }
+  .overlay-btn:active {
+    transform: translateY(3px);
+    box-shadow: 0 1px 0 #3e2a90, 0 2px 6px rgba(0,0,0,0.5);
+  }
+
+  /* (controls-strip / roster styles removed — replaced by device chrome) */
+
+  /* ─────────────────────── Battle UI overlay ─────────────────────── */
+  .battle-ui {
+    position: absolute; inset: 0;
+    pointer-events: none;
+    display: none;
+    font-family: 'VT323', monospace;
+    color: #fff;
+    z-index: 3;
+  }
+  .battle-ui.show { display: block; }
+  .battle-ui > * { pointer-events: auto; }
+
+  .battle-info {
+    position: absolute;
+    background: #fff8e8;
+    color: #1a1010;
+    border: 2px solid #1a1010;
+    box-shadow: 0 3px 0 #1a1010, 0 3px 0 2px #6E56CF;
+    border-radius: 3px;
+    padding: 4px 8px;
+    min-width: 32%;
+    font-size: 14px;
+    line-height: 1.05;
+  }
+  .battle-info .row { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; }
+  .battle-info .name {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 9px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .battle-info .type-pill {
+    display: inline-block;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 6px;
+    letter-spacing: 0.08em;
+    padding: 2px 4px;
+    border-radius: 8px;
+    color: #fff;
+  }
+  .battle-info .hp-row {
+    display: flex; align-items: center; gap: 5px;
+    margin-top: 3px;
+  }
+  .battle-info .hp-label {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
+    color: #a32418;
+    letter-spacing: 0.06em;
+  }
+  .battle-info .hp-bar {
+    flex: 1;
+    height: 7px;
+    background: #6c4a28;
+    border: 1px solid #1a1010;
+    border-radius: 2px;
+    overflow: hidden;
+    box-shadow: inset 0 1px 0 rgba(0,0,0,0.4);
+  }
+  .battle-info .hp-fill {
+    height: 100%;
+    background: linear-gradient(180deg, #9eea4a 0%, #74c14a 50%, #4a9a30 100%);
+    transition: width 0.45s cubic-bezier(.2,.8,.2,1), background 0.2s;
+    box-shadow: inset 0 -1px 0 rgba(0,0,0,0.3);
+  }
+  .battle-info .hp-fill.mid { background: linear-gradient(180deg, #fde26a, #f2c828 50%, #b89414 100%); }
+  .battle-info .hp-fill.low { background: linear-gradient(180deg, #ff7a4a, #e2552a 50%, #a32418 100%); }
+  .battle-info .hp-num {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
+    color: #1a1010;
+    letter-spacing: 0.02em;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    min-width: 38px;
+  }
+
+  .battle-enemy-info  { top: 10px;  left: 10px;  }
+  .battle-player-info { right: 10px; bottom: 102px; }
+
+  /* Bottom textbox + menu */
+  .battle-bottom {
+    position: absolute;
+    left: 8px; right: 8px; bottom: 8px;
+    display: grid;
+    grid-template-columns: 1.5fr 1fr;
+    gap: 8px;
+    height: 84px;
+  }
+  .battle-textbox {
+    background: #fff8e8;
+    color: #1a1010;
+    border: 2px solid #1a1010;
+    box-shadow: 0 3px 0 #1a1010, 0 3px 0 2px #6E56CF;
+    border-radius: 3px;
+    padding: 10px 14px;
+    font-family: 'VT323', monospace;
+    font-size: 22px;
+    line-height: 1.2;
+    overflow: hidden;
+    position: relative;
+  }
+  .battle-textbox.click-prompt::after {
+    content: '▼';
+    position: absolute;
+    bottom: 4px; right: 10px;
+    color: #6E56CF;
+    font-size: 16px;
+    animation: bbounce 0.6s infinite alternate;
+  }
+  @keyframes bbounce { from { transform: translateY(0); } to { transform: translateY(3px); } }
+
+  .battle-menu {
+    background: #fff8e8;
+    border: 2px solid #1a1010;
+    box-shadow: 0 3px 0 #1a1010, 0 3px 0 2px #6E56CF;
+    border-radius: 3px;
+    padding: 6px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    align-content: start;
+  }
+  .battle-menu.hidden { display: none; }
+  .battle-menu.fight-mode { grid-template-columns: 1fr 1fr; }
+  .battle-menu button {
+    appearance: none;
+    background: #fff8e8;
+    border: 1px solid #1a1010;
+    color: #1a1010;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
+    letter-spacing: 0.04em;
+    padding: 4px 3px;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: background 0.08s, color 0.08s, transform 0.06s;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    line-height: 1.05;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .battle-menu button:hover { background: #6E56CF; color: #fff; }
+  .battle-menu button:active { transform: translateY(1px); }
+  .battle-menu button.span2 { grid-column: span 2; }
+  .battle-menu .move-meta {
+    font-family: 'VT323', monospace;
+    font-size: 11px;
+    color: #6E56CF;
+    letter-spacing: 0.02em;
+    line-height: 1;
+    white-space: nowrap;
+  }
+  .battle-menu button:hover .move-meta { color: #fde26a; }
+
+  /* Game-over overlay */
+  .gameover-overlay {
+    position: absolute; inset: 0;
+    display: none;
+    align-items: center; justify-content: center;
+    flex-direction: column; gap: 18px;
+    background: rgba(11, 10, 20, 0.82);
+    backdrop-filter: blur(2px);
+    z-index: 6;
+    pointer-events: none;
+  }
+  .gameover-overlay.show { display: flex; pointer-events: auto; }
+  .gameover-overlay .title {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 22px;
+    color: #ff5a4a;
+    text-shadow: 3px 3px 0 #1a0a0a, 5px 5px 0 rgba(0,0,0,0.6);
+    text-align: center;
+  }
+  .gameover-overlay .sub {
+    font-family: 'VT323', monospace;
+    font-size: 22px;
+    color: #fff8e8;
+  }
+
+  @media (max-width: 720px) {
+    .cabinet { padding: 26px 18px 22px; }
+    .trigger-l { left: 24px; } .trigger-r { right: 24px; }
+    .dpad { width: 96px; height: 96px; }
+    .ab-btn { width: 48px; height: 48px; }
+    .speaker-stripe { height: 28px; }
+    .label-strip .brand-engraved { font-size: 9px; }
+    .label-strip .brand-engraved .sub { font-size: 11px; }
+    .pill { font-size: 13px; padding: 2px 7px; }
+    .progress { width: 66px; }
+    .hint-row { display: none; }
+  }
+  @media (max-width: 540px) {
+    .device-controls { grid-template-columns: 1fr 1fr; }
+    .center-cluster { grid-column: span 2; order: 3; flex-direction: row; }
+  }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="cabinet">
+      <div class="trigger trigger-l">L</div>
+      <div class="trigger trigger-r">R</div>
+      <div class="brand-chip">▮ POCKET-9 SYSTEM ▮</div>
+
+      <div class="screen-housing">
+        <div class="screen-wrap" id="screen">
+          <canvas id="game" width="384" height="216"></canvas>
+          <div class="scanlines" id="scanlines"></div>
+          <div class="vignette"></div>
+
+          <!-- Battle overlay -->
+          <div class="battle-ui" id="battle-ui">
+            <div class="battle-info battle-enemy-info">
+              <div class="row">
+                <span class="name" id="b-enemy-name">Leafkin</span>
+                <span class="type-pill" id="b-enemy-type" style="background:#6E56CF">WILD</span>
+              </div>
+              <div class="hp-row">
+                <span class="hp-label">HP</span>
+                <div class="hp-bar"><div class="hp-fill" id="b-enemy-hp"></div></div>
+              </div>
+              <div class="hp-num" id="b-enemy-hp-num">24 / 24</div>
+            </div>
+            <div class="battle-info battle-player-info">
+              <div class="row">
+                <span class="name">Emberon</span>
+                <span class="type-pill" style="background:#e2552a">FIRE</span>
+              </div>
+              <div class="hp-row">
+                <span class="hp-label">HP</span>
+                <div class="hp-bar"><div class="hp-fill" id="b-player-hp"></div></div>
+              </div>
+              <div class="hp-num" id="b-player-hp-num">30 / 30</div>
+            </div>
+            <div class="battle-bottom">
+              <div class="battle-textbox" id="b-text">A wild Leafkin appeared!</div>
+              <div class="battle-menu hidden" id="b-menu"></div>
+            </div>
+          </div>
+
+          <div class="overlay" id="winscreen">
+            <div class="overlay-title">CHAMPION!</div>
+            <div class="overlay-sub" id="winsub">You caught 'em all.</div>
+            <button class="overlay-btn" id="play-again">PLAY AGAIN</button>
+          </div>
+          <div class="gameover-overlay" id="gameover">
+            <div class="title">EMBERON FAINTED</div>
+            <div class="sub">The wild ones grow restless…</div>
+            <button class="overlay-btn" id="retry-btn">TRY AGAIN</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Label strip below the screen — printed nameplate + HUD -->
+      <div class="label-strip">
+        <div class="led-row">
+          <span class="led" title="power"></span>
+          <span class="lbl-small">PWR</span>
+          <span class="led battery" title="battery"></span>
+          <span class="lbl-small">BAT</span>
+        </div>
+        <div class="brand-engraved">
+          POCKET ARENA
+          <span class="sub">— COLOR LCD · DOT MATRIX —</span>
+        </div>
+        <div class="hud-cluster">
+          <span class="lbl-small">CAUGHT</span>
+          <span class="pill" id="hud-caught">0 / 0</span>
+          <span class="lbl-small">PWR</span>
+          <div class="progress"><div class="progress-fill" id="hud-power"></div></div>
+        </div>
+      </div>
+
+      <!-- Physical controls -->
+      <div class="device-controls">
+        <div class="dpad" id="dpad">
+          <button class="dpad-btn dpad-up"    aria-label="up"    data-key="w"></button>
+          <button class="dpad-btn dpad-down"  aria-label="down"  data-key="s"></button>
+          <button class="dpad-btn dpad-left"  aria-label="left"  data-key="a"></button>
+          <button class="dpad-btn dpad-right" aria-label="right" data-key="d"></button>
+          <div class="dpad-center"></div>
+        </div>
+
+        <div class="center-cluster">
+          <div class="start-select">
+            <div class="ss-wrap">
+              <button class="ss-btn" id="btn-select" aria-label="select"></button>
+              <span class="ss-label">SELECT</span>
+            </div>
+            <div class="ss-wrap">
+              <button class="ss-btn" id="btn-start" aria-label="start"></button>
+              <span class="ss-label">START</span>
+            </div>
+          </div>
+          <div class="speaker" aria-hidden="true">
+            <div class="speaker-stripe"></div>
+            <div class="speaker-stripe"></div>
+            <div class="speaker-stripe"></div>
+            <div class="speaker-stripe"></div>
+            <div class="speaker-stripe"></div>
+            <div class="speaker-stripe"></div>
+          </div>
+        </div>
+
+        <div class="ab-pad">
+          <div class="ab-wrap">
+            <button class="ab-btn b" id="btn-b" aria-label="B">B</button>
+            <span class="ab-label">B</span>
+          </div>
+          <div class="ab-wrap">
+            <button class="ab-btn a" id="btn-a" aria-label="A">A</button>
+            <span class="ab-label">A</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="hint-row">
+        <span>WASD or D-pad to move · A or Space to throw · click to aim</span>
+        <button class="reset-btn" id="reset-btn">NEW GAME</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- React/Babel for the Tweaks panel only -->
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <script type="text/babel" src="tweaks-panel.jsx"></script>
+
+  <!-- Game code -->
+  <script src="sprites.js"></script>
+  <script src="battle.js"></script>
+  <script src="game.js"></script>
+
+  <script>
+    // Mount game
+    const canvas = document.getElementById('game');
+    window.SDS_GAME.mount(canvas);
+
+    // HUD updater
+    const hudCaught = document.getElementById('hud-caught');
+    const hudPower = document.getElementById('hud-power');
+    const winscreen = document.getElementById('winscreen');
+    const winsub = document.getElementById('winsub');
+    const scanlinesEl = document.getElementById('scanlines');
+    const gameoverEl = document.getElementById('gameover');
+
+    // Battle UI refs
+    const battleUI = document.getElementById('battle-ui');
+    const bEnemyName = document.getElementById('b-enemy-name');
+    const bEnemyType = document.getElementById('b-enemy-type');
+    const bEnemyHP = document.getElementById('b-enemy-hp');
+    const bEnemyHPNum = document.getElementById('b-enemy-hp-num');
+    const bPlayerHP = document.getElementById('b-player-hp');
+    const bPlayerHPNum = document.getElementById('b-player-hp-num');
+    const bText = document.getElementById('b-text');
+    const bMenu = document.getElementById('b-menu');
+
+    const TYPE_COLORS = {
+      grass: '#5aa838', water: '#3a8fde', electric: '#f2c828',
+      rock: '#7a6a52', ghost: '#6E56CF', flying: '#a8c8e0',
+      fire: '#e2552a', normal: '#a8a8b0',
+    };
+
+    let lastTotal = -1, lastCaught = -1;
+
+    function setHPBar(el, num, hp, max) {
+      const pct = Math.max(0, (hp / max) * 100);
+      el.style.width = pct + '%';
+      el.classList.toggle('mid', pct <= 50 && pct > 20);
+      el.classList.toggle('low', pct <= 20);
+      num.textContent = `${Math.max(0,hp)} / ${max}`;
+    }
+
+    // Build menu DOM from battle state
+    let lastMenuState = '';
+    function updateBattleMenu(s, b) {
+      const key = (b.menu || 'none') + '|' + (b.player.moves ? b.player.moves.length : 0);
+      if (key === lastMenuState) return;
+      lastMenuState = key;
+      bMenu.innerHTML = '';
+      if (b.menu === 'main') {
+        bMenu.classList.remove('hidden');
+        const items = [
+          { label: 'FIGHT', action: 'fight' },
+          { label: 'CATCH', action: 'catch' },
+          { label: 'RUN',   action: 'run', span: true },
+        ];
+        items.forEach((it) => {
+          const btn = document.createElement('button');
+          btn.textContent = it.label;
+          if (it.span) btn.className = 'span2';
+          btn.addEventListener('click', () => window.SDS_BATTLE.chooseAction(s, it.action));
+          bMenu.appendChild(btn);
+        });
+      } else if (b.menu === 'fight') {
+        bMenu.classList.remove('hidden');
+        b.player.moves.forEach((m, i) => {
+          const btn = document.createElement('button');
+          const lbl = document.createElement('span');
+          lbl.textContent = m.name.toUpperCase();
+          const meta = document.createElement('span');
+          meta.className = 'move-meta';
+          meta.textContent = m.dmg > 0 ? `PWR ${m.dmg}` : 'STATUS';
+          btn.appendChild(lbl); btn.appendChild(meta);
+          btn.addEventListener('click', () => window.SDS_BATTLE.chooseMove(s, i));
+          bMenu.appendChild(btn);
+        });
+      } else {
+        bMenu.classList.add('hidden');
+      }
+    }
+
+    function tickHud() {
+      const s = window.SDS_GAME.getState();
+      const t = window.SDS_GAME.getTune();
+      if (!s) { requestAnimationFrame(tickHud); return; }
+
+      if (s.totalSpawned !== lastTotal) {
+        lastTotal = s.totalSpawned;
+      }
+      if (s.caught !== lastCaught) {
+        hudCaught.textContent = `${s.caught} / ${s.totalSpawned}`;
+        lastCaught = s.caught;
+      }
+      // Power = scale mapped to 0–100% (1.0 → 0, 2.4 → 100)
+      const power = Math.min(100, ((s.player.scale - 1) / 1.4) * 100);
+      hudPower.style.width = power + '%';
+
+      // Battle UI
+      if (s.phase === 'battle' && s.battle) {
+        const b = s.battle;
+        battleUI.classList.add('show');
+        bEnemyName.textContent = b.enemy.name;
+        bEnemyType.textContent = b.enemy.typeName.toUpperCase();
+        bEnemyType.style.background = TYPE_COLORS[b.enemy.typeName] || '#6E56CF';
+        setHPBar(bEnemyHP, bEnemyHPNum, b.enemy.hp, b.enemy.maxHP);
+        setHPBar(bPlayerHP, bPlayerHPNum, b.player.hp, b.player.maxHP);
+        bText.textContent = b.message || '';
+        bText.classList.toggle('click-prompt', !!b.awaitClick);
+        updateBattleMenu(s, b);
+      } else {
+        battleUI.classList.remove('show');
+        lastMenuState = '';
+      }
+
+      // Win overlay
+      if (s.won) {
+        winscreen.classList.add('show');
+        winsub.textContent = `You caught ${s.caught}${s.defeated ? ` and defeated ${s.defeated}` : ''} of ${s.totalSpawned} wild creatures.`;
+      } else {
+        winscreen.classList.remove('show');
+      }
+
+      // Game over overlay
+      if (s.gameOver) gameoverEl.classList.add('show');
+      else gameoverEl.classList.remove('show');
+
+      // Scanlines visibility
+      scanlinesEl.style.display = t.scanlines ? 'block' : 'none';
+
+      requestAnimationFrame(tickHud);
+    }
+    requestAnimationFrame(tickHud);
+
+    // Reset
+    function reset() { window.SDS_GAME.resetGame(); }
+    document.getElementById('reset-btn').addEventListener('click', reset);
+    document.getElementById('play-again').addEventListener('click', reset);
+    document.getElementById('retry-btn').addEventListener('click', reset);
+
+    // Physical D-pad: press-and-hold mapped to WASD keys
+    function bindHold(el, key) {
+      const down = (e) => {
+        e.preventDefault();
+        el.classList.add('active');
+        window.SDS_GAME.pressKey(key);
+        // give canvas focus so keyboard movement also works
+      };
+      const up = (e) => {
+        if (e) e.preventDefault();
+        el.classList.remove('active');
+        window.SDS_GAME.releaseKey(key);
+      };
+      el.addEventListener('pointerdown', down);
+      el.addEventListener('pointerup', up);
+      el.addEventListener('pointerleave', up);
+      el.addEventListener('pointercancel', up);
+    }
+    document.querySelectorAll('.dpad-btn').forEach((btn) => {
+      bindHold(btn, btn.dataset.key);
+    });
+
+    // A button → throw / advance message; B button → run away (or also advance)
+    const btnA = document.getElementById('btn-a');
+    const btnB = document.getElementById('btn-b');
+    btnA.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      btnA.classList.add('active');
+      const s = window.SDS_GAME.getState();
+      if (s && s.phase === 'battle') {
+        // In battle, A advances messages. If menu is open, picks first option (FIGHT or first move).
+        if (s.battle && s.battle.menu) {
+          const first = document.querySelector('.battle-menu button');
+          if (first) first.click();
+        } else {
+          window.SDS_BATTLE.advanceMessage(s);
+        }
+      } else {
+        window.SDS_GAME.throwBall();
+      }
+    });
+    btnA.addEventListener('pointerup', () => btnA.classList.remove('active'));
+    btnA.addEventListener('pointerleave', () => btnA.classList.remove('active'));
+
+    btnB.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      btnB.classList.add('active');
+      const s = window.SDS_GAME.getState();
+      if (s && s.phase === 'battle' && s.battle && s.battle.menu === 'fight') {
+        // back to main menu
+        s.battle.menu = 'main';
+      } else if (s && s.phase === 'battle' && s.battle && s.battle.awaitClick) {
+        window.SDS_BATTLE.advanceMessage(s);
+      }
+    });
+    btnB.addEventListener('pointerup', () => btnB.classList.remove('active'));
+    btnB.addEventListener('pointerleave', () => btnB.classList.remove('active'));
+
+    // START opens / closes tweaks; SELECT cycles palette
+    document.getElementById('btn-start').addEventListener('click', () => {
+      window.parent.postMessage({ type: '__activate_edit_mode' }, '*');
+    });
+    document.getElementById('btn-select').addEventListener('click', () => {
+      const t = window.SDS_GAME.getTune();
+      const order = ['day', 'dusk', 'night'];
+      const next = order[(order.indexOf(t.palette) + 1) % order.length];
+      window.SDS_GAME.setTune('palette', next);
+    });
+  </script>
+
+  <!-- Tweaks app (separate babel script so it has access to the helpers) -->
+  <script type="text/babel">
+    const TWEAK_DEFAULTS = window.SDS_GAME.getTune();
+
+    function TweaksApp() {
+      const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+
+      // Push every tweak change into the game's TUNE object
+      React.useEffect(() => {
+        Object.keys(t).forEach((k) => window.SDS_GAME.setTune(k, t[k]));
+      }, [t.wildCount, t.ballSpeed, t.playerSpeed, t.enemySpeed, t.growthPerCatch, t.scanlines, t.palette, t.musicMood]);
+
+      return (
+        <TweaksPanel title="Tweaks">
+          <TweakSection label="Match" />
+          <TweakSlider label="Wild creatures" value={t.wildCount} min={3} max={14} step={1}
+                       onChange={(v) => setTweak('wildCount', v)} />
+          <TweakSlider label="Growth / catch" value={t.growthPerCatch} min={0.04} max={0.35} step={0.01}
+                       onChange={(v) => setTweak('growthPerCatch', v)} />
+
+          <TweakSection label="Speed" />
+          <TweakSlider label="Player" value={t.playerSpeed} min={30} max={140} step={5} unit="px/s"
+                       onChange={(v) => setTweak('playerSpeed', v)} />
+          <TweakSlider label="Enemies" value={t.enemySpeed} min={10} max={90} step={2} unit="px/s"
+                       onChange={(v) => setTweak('enemySpeed', v)} />
+          <TweakSlider label="Pokeball" value={t.ballSpeed} min={70} max={260} step={5} unit="px/s"
+                       onChange={(v) => setTweak('ballSpeed', v)} />
+
+          <TweakSection label="Aesthetic" />
+          <TweakRadio label="Palette" value={t.palette} options={['day','dusk','night']}
+                       onChange={(v) => setTweak('palette', v)} />
+          <TweakToggle label="CRT scanlines" value={t.scanlines}
+                       onChange={(v) => setTweak('scanlines', v)} />
+          <TweakButton label="New game"
+                       onClick={() => window.SDS_GAME.resetGame()} />
+        </TweaksPanel>
+      );
+    }
+
+    const tweaksRoot = document.createElement('div');
+    document.body.appendChild(tweaksRoot);
+    ReactDOM.createRoot(tweaksRoot).render(<TweaksApp />);
+  </script>
+</body>
+</html>
