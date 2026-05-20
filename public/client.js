@@ -16,11 +16,22 @@ const Button = {
 const PLAYER_BYTES = 19;
 const BULLET_BYTES = 13;
 const WORLD = { w: 8192, h: 8192 };
+const ANGLE_STEPS = 1024;
+const TICK_RATE = 30;
+const TURN_PER_TICK = 27;
+const DIRECT_TURN_PER_TICK = 72;
+const THRUST_PER_TICK = 62;
+const DRAG_PER_TICK = 996 / 1024;
+const MAX_SPEED = 1520;
+const BULLET_SPEED = 2150;
+const BULLET_TTL = 1.4;
+const MAX_ACTIVE_BULLETS = 10;
 const keys = new Set();
 const players = new Map();
 const bullets = new Map();
 const renderPlayers = new Map();
 const renderBullets = new Map();
+const predictedBullets = [];
 const particles = [];
 const rings = [];
 const muzzleFlashes = [];
@@ -114,6 +125,10 @@ let lastButtons = 0;
 let frameButtons = 0;
 let isDead = false;
 let suppressNextCloseReconnect = false;
+let predictedSelf = null;
+let lastSnapshotAt = performance.now();
+let nextPredictedBulletId = -1;
+let predictedFireCooldown = 0;
 let tabSessionId = sessionStorage.getItem("arenaSid");
 if (!tabSessionId) {
   tabSessionId = crypto.randomUUID().replaceAll("-", "");
@@ -191,6 +206,7 @@ function readPacket(buffer) {
   }
   if (type !== Packet.Snapshot) return;
 
+  lastSnapshotAt = performance.now();
   let offset = 2;
   serverTick = view.getUint32(offset, true);
   offset += 4;
@@ -255,6 +271,7 @@ function readPacket(buffer) {
     if (!knownBulletIds.has(id)) {
       const owner = players.get(bullet.ownerId) ?? renderPlayers.get(bullet.ownerId);
       if (owner) spawnMuzzle(owner);
+      if (bullet.ownerId === selfId) reconcilePredictedBullet(bullet);
       if (bullet.ownerId !== selfId) playFire(false);
     }
     offset += BULLET_BYTES;
@@ -283,7 +300,11 @@ function sendInput() {
   inputSeq = (inputSeq + 1) & 0xffff;
   socket.send(buffer);
 
-  if ((buttons & Button.Fire) && !(lastButtons & Button.Fire)) playFire(true);
+  if (predictedFireCooldown > 0) predictedFireCooldown -= 1;
+  if ((buttons & Button.Fire) && predictedFireCooldown === 0 && spawnPredictedBullet()) {
+    predictedFireCooldown = 5;
+    playFire(true);
+  }
   lastButtons = buttons;
 }
 
@@ -305,6 +326,8 @@ function showDeathModal(score) {
     clearTimeout(reconnectTimer);
     reconnectTimer = 0;
   }
+  predictedBullets.length = 0;
+  predictedFireCooldown = 0;
   resetStick();
   setFireButton(false);
   statusEl.textContent = "dead";
@@ -332,8 +355,11 @@ function respawn() {
   lastButtons = 0;
   players.clear();
   bullets.clear();
+  predictedBullets.length = 0;
   renderPlayers.clear();
   renderBullets.clear();
+  predictedSelf = null;
+  predictedFireCooldown = 0;
   knownPlayerIds.clear();
   knownBulletIds.clear();
   leaderboardEl.replaceChildren();
@@ -411,19 +437,30 @@ function updateQuality(dt) {
     quality: perf.quality,
     particles: particles.length,
     bullets: renderBullets.size,
+    predictedBullets: predictedBullets.length,
     ships: renderPlayers.size,
+    snapshotAgeMs: Math.round(performance.now() - lastSnapshotAt),
+    prediction: Boolean(predictedSelf),
   };
 }
 
 function updateRenderState(dt) {
   for (const [id, player] of players) {
     const render = renderPlayers.get(id) ?? { ...player, turnGlow: 0, thrustGlow: 0 };
-    const blend = id === selfId ? 0.28 : 0.18;
-    render.x = wrapLerp(render.x, player.x + player.vx * dt * 0.55, WORLD.w, blend);
-    render.y = wrapLerp(render.y, player.y + player.vy * dt * 0.55, WORLD.h, blend);
-    render.vx += (player.vx - render.vx) * 0.22;
-    render.vy += (player.vy - render.vy) * 0.22;
-    render.angle = angleLerp(render.angle, player.angle, 0.3);
+    if (id === selfId) {
+      const predicted = updatePredictedSelf(player, dt);
+      render.x = predicted.x;
+      render.y = predicted.y;
+      render.vx = predicted.vx;
+      render.vy = predicted.vy;
+      render.angle = predicted.angle;
+    } else {
+      render.x = wrapLerp(render.x, player.x + player.vx * dt * 0.55, WORLD.w, 0.18);
+      render.y = wrapLerp(render.y, player.y + player.vy * dt * 0.55, WORLD.h, 0.18);
+      render.vx += (player.vx - render.vx) * 0.22;
+      render.vy += (player.vy - render.vy) * 0.22;
+      render.angle = angleLerp(render.angle, player.angle, 0.3);
+    }
     render.radius += (player.radius - render.radius) * 0.24;
     render.score = player.score;
     render.hue = player.hue;
@@ -454,6 +491,106 @@ function updateRenderState(dt) {
   for (const id of renderBullets.keys()) {
     if (!bullets.has(id)) renderBullets.delete(id);
   }
+  updatePredictedBullets(dt);
+}
+
+function updatePredictedSelf(serverPlayer, dt) {
+  if (!predictedSelf || predictedSelf.id !== serverPlayer.id) {
+    predictedSelf = { ...serverPlayer };
+  } else {
+    predictedSelf.x = wrapLerp(predictedSelf.x, serverPlayer.x, WORLD.w, 0.08);
+    predictedSelf.y = wrapLerp(predictedSelf.y, serverPlayer.y, WORLD.h, 0.08);
+    predictedSelf.vx += (serverPlayer.vx - predictedSelf.vx) * 0.08;
+    predictedSelf.vy += (serverPlayer.vy - predictedSelf.vy) * 0.08;
+    predictedSelf.angle = angleLerp(predictedSelf.angle, serverPlayer.angle, 0.12);
+    predictedSelf.radius = serverPlayer.radius;
+    predictedSelf.score = serverPlayer.score;
+    predictedSelf.hue = serverPlayer.hue;
+    predictedSelf.alive = serverPlayer.alive;
+  }
+
+  predictShip(predictedSelf, frameButtons, dt);
+  return predictedSelf;
+}
+
+function predictShip(ship, buttons, dt) {
+  const tickScale = dt * TICK_RATE;
+  if (buttons & Button.Direct) {
+    ship.angle = stepAngleToward(ship.angle, touchInput.aimAngle, DIRECT_TURN_PER_TICK * tickScale);
+  } else {
+    if (buttons & Button.Left) ship.angle = wrap(ship.angle - TURN_PER_TICK * tickScale, ANGLE_STEPS);
+    if (buttons & Button.Right) ship.angle = wrap(ship.angle + TURN_PER_TICK * tickScale, ANGLE_STEPS);
+  }
+  if (buttons & Button.Thrust) {
+    const thrust = buttons & Button.Direct ? Math.max(18, touchInput.throttle) / 255 : 1;
+    const radians = (ship.angle / ANGLE_STEPS) * Math.PI * 2;
+    const accel = THRUST_PER_TICK * TICK_RATE * thrust;
+    ship.vx += Math.cos(radians) * accel * dt;
+    ship.vy += Math.sin(radians) * accel * dt;
+  }
+
+  const drag = Math.pow(DRAG_PER_TICK, tickScale);
+  ship.vx *= drag;
+  ship.vy *= drag;
+  const speed = Math.hypot(ship.vx, ship.vy);
+  if (speed > MAX_SPEED) {
+    ship.vx = (ship.vx / speed) * MAX_SPEED;
+    ship.vy = (ship.vy / speed) * MAX_SPEED;
+  }
+  ship.x = wrap(ship.x + ship.vx * dt, WORLD.w);
+  ship.y = wrap(ship.y + ship.vy * dt, WORLD.h);
+}
+
+function spawnPredictedBullet() {
+  const self = predictedSelf ?? renderPlayers.get(selfId) ?? players.get(selfId);
+  if (!self || countSelfBullets() + predictedBullets.length >= MAX_ACTIVE_BULLETS) return false;
+  const radians = (self.angle / ANGLE_STEPS) * Math.PI * 2;
+  predictedBullets.push({
+    id: nextPredictedBulletId--,
+    ownerId: selfId,
+    x: wrap(self.x + Math.cos(radians) * (self.radius + 18), WORLD.w),
+    y: wrap(self.y + Math.sin(radians) * (self.radius + 18), WORLD.h),
+    vx: self.vx + Math.cos(radians) * BULLET_SPEED,
+    vy: self.vy + Math.sin(radians) * BULLET_SPEED,
+    ttl: BULLET_TTL,
+    predicted: true,
+  });
+  return true;
+}
+
+function countSelfBullets() {
+  let count = 0;
+  for (const bullet of renderBullets.values()) {
+    if (bullet.ownerId === selfId) count += 1;
+  }
+  return count;
+}
+
+function updatePredictedBullets(dt) {
+  for (let i = predictedBullets.length - 1; i >= 0; i -= 1) {
+    const bullet = predictedBullets[i];
+    bullet.x = wrap(bullet.x + bullet.vx * dt, WORLD.w);
+    bullet.y = wrap(bullet.y + bullet.vy * dt, WORLD.h);
+    bullet.ttl -= dt;
+    if (bullet.ttl <= 0) predictedBullets.splice(i, 1);
+  }
+}
+
+function reconcilePredictedBullet(serverBullet) {
+  if (predictedBullets.length === 0) return;
+  let bestIndex = 0;
+  let bestDistance = Infinity;
+  for (let i = 0; i < predictedBullets.length; i += 1) {
+    const candidate = predictedBullets[i];
+    const dx = torusDelta(candidate.x, serverBullet.x, WORLD.w);
+    const dy = torusDelta(candidate.y, serverBullet.y, WORLD.h);
+    const distance = dx * dx + dy * dy;
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestIndex = i;
+    }
+  }
+  predictedBullets.splice(bestIndex, 1);
 }
 
 function updateCamera(dt) {
@@ -646,36 +783,41 @@ function drawShip(x, y, player) {
 }
 
 function drawBullets(dt) {
+  for (const bullet of predictedBullets) drawBullet(bullet, dt);
   for (const bullet of renderBullets.values()) {
-    const ownerIsSelf = bullet.ownerId === selfId;
-    const to = toScreen(bullet.x + bullet.vx * dt * 0.35, bullet.y + bullet.vy * dt * 0.35);
-    if (!isNearScreen(to.x, to.y, 80)) continue;
-    const speed = Math.max(1, Math.hypot(bullet.vx, bullet.vy));
-    const trailLength = clamp(speed * camera.zoom * 0.065, 18, 58) * devicePixelRatio;
-    const from = {
-      x: to.x - (bullet.vx / speed) * trailLength,
-      y: to.y - (bullet.vy / speed) * trailLength,
-    };
-    if (!SHOW_EFFECTS || perf.quality === 0) {
-      ctx.strokeStyle = ownerIsSelf ? "rgba(255,195,77,0.82)" : "rgba(255,70,116,0.76)";
-    } else {
-      const grad = ctx.createLinearGradient(from.x, from.y, to.x, to.y);
-      grad.addColorStop(0, ownerIsSelf ? "rgba(255,195,77,0)" : "rgba(255,70,116,0)");
-      grad.addColorStop(0.5, ownerIsSelf ? "rgba(255,195,77,0.78)" : "rgba(255,70,116,0.7)");
-      grad.addColorStop(1, "rgba(255,245,199,1)");
-      ctx.strokeStyle = grad;
-    }
-    ctx.lineWidth = Math.max(2, 4 * visualScale(0.34));
-    ctx.lineCap = "round";
-    ctx.beginPath();
-    ctx.moveTo(from.x, from.y);
-    ctx.lineTo(to.x, to.y);
-    ctx.stroke();
-    ctx.fillStyle = ownerIsSelf ? "#fff5c7" : "#ff4674";
-    ctx.beginPath();
-    ctx.arc(to.x, to.y, Math.max(2, 5 * visualScale(0.34)), 0, Math.PI * 2);
-    ctx.fill();
+    drawBullet(bullet, dt);
   }
+}
+
+function drawBullet(bullet, dt) {
+  const ownerIsSelf = bullet.ownerId === selfId;
+  const to = toScreen(bullet.x + bullet.vx * dt * 0.35, bullet.y + bullet.vy * dt * 0.35);
+  if (!isNearScreen(to.x, to.y, 80)) return;
+  const speed = Math.max(1, Math.hypot(bullet.vx, bullet.vy));
+  const trailLength = clamp(speed * camera.zoom * 0.065, 18, 58) * devicePixelRatio;
+  const from = {
+    x: to.x - (bullet.vx / speed) * trailLength,
+    y: to.y - (bullet.vy / speed) * trailLength,
+  };
+  if (!SHOW_EFFECTS || perf.quality === 0 || bullet.predicted) {
+    ctx.strokeStyle = ownerIsSelf ? "rgba(255,195,77,0.82)" : "rgba(255,70,116,0.76)";
+  } else {
+    const grad = ctx.createLinearGradient(from.x, from.y, to.x, to.y);
+    grad.addColorStop(0, ownerIsSelf ? "rgba(255,195,77,0)" : "rgba(255,70,116,0)");
+    grad.addColorStop(0.5, ownerIsSelf ? "rgba(255,195,77,0.78)" : "rgba(255,70,116,0.7)");
+    grad.addColorStop(1, "rgba(255,245,199,1)");
+    ctx.strokeStyle = grad;
+  }
+  ctx.lineWidth = Math.max(2, 4 * visualScale(0.34));
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(from.x, from.y);
+  ctx.lineTo(to.x, to.y);
+  ctx.stroke();
+  ctx.fillStyle = ownerIsSelf ? "#fff5c7" : "#ff4674";
+  ctx.beginPath();
+  ctx.arc(to.x, to.y, Math.max(2, 5 * visualScale(0.34)), 0, Math.PI * 2);
+  ctx.fill();
 }
 
 function drawParticles() {
@@ -965,6 +1107,13 @@ function angleLerp(from, to, t) {
   let d = ((to - from + 512) % 1024) - 512;
   if (d < -512) d += 1024;
   return wrap(from + d * t, 1024);
+}
+
+function stepAngleToward(from, to, maxStep) {
+  let d = wrap(to - from + ANGLE_STEPS / 2, ANGLE_STEPS) - ANGLE_STEPS / 2;
+  if (d < -ANGLE_STEPS / 2) d += ANGLE_STEPS;
+  if (Math.abs(d) <= maxStep) return wrap(to, ANGLE_STEPS);
+  return wrap(from + Math.sign(d) * maxStep, ANGLE_STEPS);
 }
 
 function clamp(value, min, max) {
