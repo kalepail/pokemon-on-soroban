@@ -6,4 +6,5 @@ edition = "2024"
 [dependencies]
 ratatui = "0.29"
 crossterm = "0.28"
-tungstenite = "0.26"
+tungstenite = { version = "0.26", features = ["native-tls"] }
+native-tls = "0.2"

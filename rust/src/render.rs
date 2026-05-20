@@ -216,24 +216,16 @@ fn draw_player_sprite(
 
 fn torus_delta(a: f64, b: f64, size: f64) -> f64 {
     let mut d = a - b;
-    if d > size / 2.0 {
-        d -= size;
-    }
-    if d < -size / 2.0 {
-        d += size;
-    }
+    if d > size / 2.0 { d -= size; }
+    if d < -size / 2.0 { d += size; }
     d
 }
 
 fn world_to_screen(
-    obj_x: f64,
-    obj_y: f64,
-    cam_x: f64,
-    cam_y: f64,
-    world_w: f64,
-    world_h: f64,
-    center_px: f64,
-    center_py: f64,
+    obj_x: f64, obj_y: f64,
+    cam_x: f64, cam_y: f64,
+    world_w: f64, world_h: f64,
+    center_px: f64, center_py: f64,
 ) -> (i32, i32) {
     let dx = torus_delta(obj_x, cam_x, world_w);
     let dy = torus_delta(obj_y, cam_y, world_h);
@@ -265,7 +257,7 @@ pub fn draw(frame: &mut Frame, state: &GameState) {
 
     let mut pixels = vec![OUTSIDE_COLOR; w * h];
 
-    // Draw world background — wrapping aware
+    // Draw world background — wrapping
     for py in 0..h {
         for px in 0..w {
             let wx = cam_x + (px as f64 - center_px) * SCALE;
@@ -273,46 +265,43 @@ pub fn draw(frame: &mut Frame, state: &GameState) {
             let wrapped_x = ((wx % ww) + ww) % ww;
             let wrapped_y = ((wy % wh) + wh) % wh;
             pixels[py * w + px] = world_pixel_color(
-                wrapped_x.floor() as i64,
-                wrapped_y.floor() as i64,
-                ww as i64,
-                wh as i64,
+                wrapped_x.floor() as i64, wrapped_y.floor() as i64,
+                ww as i64, wh as i64,
             );
         }
     }
 
-    // Draw bullets as pokeballs
+    // Draw bullets as pokeballs with arc
+    let max_ttl = 42.0; // TICK_RATE * 1.4
     for bullet in &state.bullets {
         let (bx, by) = state.interpolated_pos(bullet.x, bullet.y, bullet.vx, bullet.vy);
-        let (sx, sy) = world_to_screen(bx, by, cam_x, cam_y, ww, wh, center_px, center_py);
+        let (sx, sy) = world_to_screen(
+            bx, by, cam_x, cam_y, ww, wh, center_px, center_py,
+        );
 
         // Shadow on ground
         set_pixel(&mut pixels, w, h, sx, sy, SHADOW_COLOR);
         set_pixel(&mut pixels, w, h, sx + 1, sy, SHADOW_COLOR);
 
-        // Arc based on remaining TTL
-        let max_ttl = 42.0;
+        // Arc: parabola based on flight progress, peaks at midpoint
         let progress = 1.0 - (bullet.ttl as f64 / max_ttl).clamp(0.0, 1.0);
-        let arc_offset = (-4.0 * 6.0 * progress * (1.0 - progress)).floor() as i32;
+        let arc_height = 8.0;
+        let arc_offset = (-4.0 * arc_height * progress * (1.0 - progress)).floor() as i32;
         let arc_y = sy + arc_offset;
 
-        for dx in -2..=2i32 {
-            set_pixel(&mut pixels, w, h, sx + dx, arc_y - 2, POKEBALL_RED);
-            set_pixel(&mut pixels, w, h, sx + dx, arc_y - 1, POKEBALL_RED);
-            set_pixel(&mut pixels, w, h, sx + dx, arc_y, POKEBALL_BAND);
-            set_pixel(&mut pixels, w, h, sx + dx, arc_y + 1, POKEBALL_WHITE);
-            set_pixel(&mut pixels, w, h, sx + dx, arc_y + 2, POKEBALL_WHITE);
+        for dx in 0..3i32 {
+            set_pixel(&mut pixels, w, h, sx - 1 + dx, arc_y - 1, POKEBALL_RED);
+            set_pixel(&mut pixels, w, h, sx - 1 + dx, arc_y, POKEBALL_BAND);
+            set_pixel(&mut pixels, w, h, sx - 1 + dx, arc_y + 1, POKEBALL_WHITE);
         }
-        set_pixel(&mut pixels, w, h, sx, arc_y, POKEBALL_WHITE);
-        set_pixel(&mut pixels, w, h, sx + 1, arc_y, POKEBALL_WHITE);
-        set_pixel(&mut pixels, w, h, sx, arc_y - 1, POKEBALL_BAND);
-        set_pixel(&mut pixels, w, h, sx, arc_y + 1, POKEBALL_BAND);
     }
 
     // Draw players
     for player in &state.players {
         let (px, py) = state.interpolated_pos(player.x, player.y, player.vx, player.vy);
-        let (sx, sy) = world_to_screen(px, py, cam_x, cam_y, ww, wh, center_px, center_py);
+        let (sx, sy) = world_to_screen(
+            px, py, cam_x, cam_y, ww, wh, center_px, center_py,
+        );
 
         if sx < -20 || sx >= w as i32 + 20 || sy < -20 || sy >= h as i32 + 20 {
             continue;
